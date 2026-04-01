@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ .Values.instance_name }}-traefik-ingress"
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+    traefik.ingress.kubernetes.io/redirect-entry-point: https
+    cert-manager.io/cluster-issuer: "{{ .Values.certmanager_issuer }}"
+    cert-manager.io/issue-temporary-certificate: "true"
+    traefik.ingress.kubernetes.io/custom-response-headers: "Strict-Transport-Security:max-age=15552000; includeSubDomains"
+spec:
+  rules:
+  - host: "{{ .Values.site_fqdn }}"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: "{{ .Values.instance_name }}"
+            port:
+              number: {{ .Values.service_port }}
+  tls:
+  - hosts:
+    - "{{ .Values.site_fqdn }}"
+    secretName: "{{ .Values.credential_name }}"

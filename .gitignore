@@ -1,5 +1,8 @@
 # Local .terraform directories
 .terraform/
+.venv
+.idea
+.DS_Store
 
 # .tfstate files
 *.tfstate
@@ -35,3 +38,8 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+
+# Cluster-local Git SSH credentials for efs-workspace-init-datamart
+config/_clusters/*/efs-workspace-init-datamart/git-ssh-private-key
+config/_clusters/*/efs-workspace-init-datamart/git-ssh-public-key
+config/_clusters/*/efs-workspace-init-datamart/git-ssh-known-hosts

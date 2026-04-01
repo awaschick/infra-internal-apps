@@ -1,0 +1,6 @@
+kubeconfig
+*secret
+*password
+_state
+*key
+workload-environment

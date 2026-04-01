@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Values.instance_name }}-loadbalancer"
+  namespace: "{{ .Values.kubernetes_namespace }}"
+spec:
+  type: LoadBalancer
+  loadBalancerIP: {{ .Values.ingress_address }}
+  selector:
+    {{ .Values.selector_key }}: {{ .Values.selector_value }}
+    {{ if .Values.selector_key_2 }}
+    {{ .Values.selector_key_2 }}: {{ .Values.selector_value_2 }}
+    {{ end }}
+    {{ if .Values.selector_key_3 }}
+    {{ .Values.selector_key_3 }}: {{ .Values.selector_value_3 }}
+    {{ end }}
+  ports:
+    {{ if .Values.service_port_1 }}
+    - name: "svc{{ .Values.service_port_1 }}"
+      protocol: TCP
+      port: {{ .Values.external_port_1 }}
+      targetPort: {{ .Values.service_port_1 }}
+    {{ end }}
+    {{ if .Values.service_port_2 }}
+    - name: "svc{{ .Values.service_port_2 }}"
+      protocol: TCP
+      port: {{ .Values.external_port_2 }}
+      targetPort: {{ .Values.service_port_2}}
+    {{ end }}
+    {{ if .Values.service_port_3 }}
+    - name: "svc{{ .Values.service_port_3 }}"
+      protocol: TCP
+      port: {{ .Values.external_port_3 }}
+      targetPort: {{ .Values.service_port_3 }}
+    {{ end }}
+    {{ if .Values.service_port_4 }}
+    - name: "svc{{ .Values.service_port_4 }}"
+      protocol: TCP
+      port: {{ .Values.external_port_4 }}
+      targetPort: {{ .Values.service_port_4 }}
+    {{ end }}
+    {{ if .Values.service_port_5 }}
+    - name: "svc{{ .Values.service_port_5 }}"
+      protocol: TCP
+      port: {{ .Values.external_port_5 }}
+      targetPort: {{ .Values.service_port_5 }}
+    {{ end }}
+    {{ if .Values.service_port_6 }}
+    - name: "svc{{ .Values.service_port_6 }}"
+      protocol: TCP
+      port: {{ .Values.external_port_6 }}
+      targetPort: {{ .Values.service_port_6 }}
+    {{ end }}
+status:
+  loadBalancer:
+    ingress:
+    - ip: {{ .Values.ingress_address }}

@@ -1,0 +1,43 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ .Values.instance_name }}-nginx-ingress"
+  annotations:    
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: "{{ .Values.certmanager_issuer }}"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '3600'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '3600'
+    nginx.ingress.kubernetes.io/proxy-websockets: 'True'
+    nginx.org/websocket-services: '{{ .Values.instance_name }}'
+    nginx.ingress.kubernetes.io/proxy-body-size: '5000m'
+    nginx.org/client-max-body-size: '5000m'
+    nginx.ingress.kubernetes.io/server-snippets: |
+      location / {
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        client_max_body_size 1m;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering on;
+      }
+spec:
+  rules:
+  - host: "{{ .Values.site_fqdn }}"
+    http:
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: "{{ .Values.instance_name }}"
+              port:
+                number: {{ .Values.service_port }}
+  tls:
+      - hosts:
+          - "{{ .Values.site_fqdn }}"
+        secretName: "{{ .Values.credential_name }}"

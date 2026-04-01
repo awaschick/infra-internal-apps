@@ -1,0 +1,10 @@
+  profileList:
+    - display_name: Minimal Environment
+      description: >-
+        Minimal Python environment for Jupyter.
+        https://github.com/jupyter/docker-stacks/tree/master/minimal-notebook
+      default: false
+      kubespawner_override:
+        environment:
+          GRANT_SUDO: 'yes'
+        image: jupyter/minimal-notebook

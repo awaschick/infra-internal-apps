@@ -1,0 +1,22 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: "{{ .Values.cluster_issuer_name }}"
+  namespace: "{{ .Values.kubernetes_namespace }}"
+spec:
+  acme:
+    server: "{{ .Values.letsencrypt_server }}"
+    email: "{{ .Values.letsencrypt_email }}"
+    privateKeySecretRef:
+      name: "{{ .Values.cluster_issuer_name }}"
+    solvers:
+    - selector:
+        dnsZones:
+          - "{{ .Values.cert_domain }}"
+      dns01:
+        route53:
+          region: "{{ .Values.aws_region }}"
+          accessKeyID: "{{ .Values.aws_access_key }}"
+          secretAccessKeySecretRef:
+            name: "{{ .Values.aws_secret_ref_name }}"
+            key: aws_secret
