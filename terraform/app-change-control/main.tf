@@ -44,6 +44,7 @@ locals {
       { package = "app-change-control", option = "image-uri" },
       { package = "app-change-control", option = "image-pull-policy" },
       { package = "app-change-control", option = "container-port" },
+      { package = "app-change-control", option = "server-port" },
       { package = "app-change-control", option = "service-port" },
       { package = "app-change-control", option = "replicas" },
       { package = "app-change-control", option = "db-name" },
@@ -62,6 +63,7 @@ locals {
   image_uri           = local.config["app-change-control_image-uri"]
   image_pull_policy   = local.config["app-change-control_image-pull-policy"]
   container_port      = tonumber(local.config["app-change-control_container-port"])
+  server_port         = tonumber(local.config["app-change-control_server-port"])
   service_port        = tonumber(local.config["app-change-control_service-port"])
   replicas            = tonumber(local.config["app-change-control_replicas"])
   database_name       = local.config["app-change-control_db-name"]
@@ -111,7 +113,9 @@ resource "kubernetes_secret_v1" "app_env" {
     PGPASSWORD            = local.config["aws-rds-postgres_db-password"]
     PGPORT                = local.config["aws-rds-postgres_db-port"]
     PGUSER                = local.config["aws-rds-postgres_db-username"]
-    PORT                  = tostring(local.container_port)
+    PORT                  = tostring(local.server_port)
+    CLIENT_PORT           = tostring(local.container_port)
+    API_TARGET            = "http://127.0.0.1:${local.server_port}"
     PREVIEW_ALLOWED_HOSTS = local.app_fqdn
   }
 
@@ -147,6 +151,10 @@ resource "kubernetes_deployment_v1" "app" {
             container_port = local.container_port
           }
 
+          port {
+            container_port = local.server_port
+          }
+
           env_from {
             secret_ref {
               name = kubernetes_secret_v1.app_env.metadata[0].name
@@ -154,18 +162,24 @@ resource "kubernetes_deployment_v1" "app" {
           }
 
           readiness_probe {
-            http_get {
-              path = "/"
-              port = local.container_port
+            exec {
+              command = [
+                "sh",
+                "-c",
+                "wget -q -O /dev/null http://127.0.0.1:${local.container_port}/ && wget -q -O /dev/null http://127.0.0.1:${local.server_port}/api/health",
+              ]
             }
             initial_delay_seconds = 10
             period_seconds        = 10
           }
 
           liveness_probe {
-            http_get {
-              path = "/"
-              port = local.container_port
+            exec {
+              command = [
+                "sh",
+                "-c",
+                "wget -q -O /dev/null http://127.0.0.1:${local.container_port}/ && wget -q -O /dev/null http://127.0.0.1:${local.server_port}/api/health",
+              ]
             }
             initial_delay_seconds = 30
             period_seconds        = 20

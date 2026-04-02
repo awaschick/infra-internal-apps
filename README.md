@@ -84,6 +84,27 @@ Combined with the `--profile` option, the `aws` command in the helper scripts in
 
 Finally, we need to install Terraform.  We'll do this inside this local directory, using a python `.venv` directory to host it.  And, while the earlier steps are very manual owing to the likelihood of variations in the host machine, this is entirely locally defined and thus, we have a helper command in `make` to do it for us.  Run the command `make tf-init` to establish the .venv and load the proper executables. Make sure you activate the .venv with `source ./.venv/bin/activate` so the scripts can see the command. 
 
+### EKS API Access Gotcha
+
+When working against the AWS EKS clusters in this repo, Terraform may fail during `plan` or `apply` with an error that looks like this:
+
+```text
+Error: Get "https://<eks-endpoint>/api/v1/namespaces/<namespace>": dial tcp <ip>:443: i/o timeout
+```
+
+This usually does **not** mean the Terraform plan is broken. It usually means your machine can no longer reach the Kubernetes API endpoint for the selected cluster.
+
+The common reason is that the EKS cluster endpoint is configured with public access restricted by CIDR, and this repo commonly sets `aws-eks-init/cluster-endpoint-public-access-cidrs` to `AUTO`. In that mode, the allowed public IP is captured from whatever network you were on when `aws-eks-init` was last applied. If your home IP changes, you move networks, or a VPN changes your egress IP, later Terraform runs can start timing out even if they worked earlier the same day.
+
+If this happens:
+
+- Confirm your current public IP, for example with `curl https://checkip.amazonaws.com`
+- Compare it to the cluster's current allow-list with `aws eks describe-cluster --name <cluster-name> --region <region> --query 'cluster.resourcesVpcConfig.publicAccessCidrs'`
+- Reconnect to the expected network or VPN, or update the EKS endpoint CIDR allow-list by reapplying `aws-eks-init`
+- If needed, replace `AUTO` with an explicit CIDR list in the selected cluster config so access is less surprising
+
+If Terraform fails while refreshing a `kubernetes_*` resource, check cluster API reachability before assuming your application module changes caused the failure.
+
 ## How Configuration Works
 
 The `config` directory contains a lot of tiny text files, grouped into directories according to what they define. Most files will contain a single line of text—*no carriage return at the end*—that informs the behavior of one (or several) of the `make` actions listed above. 
