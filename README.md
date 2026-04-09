@@ -119,6 +119,20 @@ This repo is built to eventually accommodate deploying the same project to multi
 
 Before you start working with a fresh pull of this repo, though, there will be a number of files that won't be there, since they'd contain credentials or other sensitive data.  We'll have to supply those ourselves, using the instructions below.
 
+### App Change Control Entra config
+
+The `app-change-control` Terraform plan now reads Microsoft Entra settings from:
+
+- `config/app-change-control/entra-client-id`
+- `config/app-change-control/entra-tenant-id`
+
+You can override those per cluster with:
+
+- `config/_clusters/<cluster>/app-change-control/entra-client-id`
+- `config/_clusters/<cluster>/app-change-control/entra-tenant-id`
+
+If these files are populated, Terraform will inject `ENTRA_CLIENT_ID` and `ENTRA_TENANT_ID` into the `changecontrol-env` Kubernetes secret for the application pod. Leave them blank until you have the real Entra app registration values you want to deploy.
+
 ### Config files you'll need to supply on your own
 
 Beyond accommodating the `aws` command, we will also need to supply credentials in the `config` directory, so we can deploy our application into the Kubernetes cluster. These files are in `.gitignore` so they won't be committed into the repo, nor be supplied for you on a fresh pull:

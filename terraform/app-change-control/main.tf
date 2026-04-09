@@ -49,6 +49,8 @@ locals {
       { package = "app-change-control", option = "replicas" },
       { package = "app-change-control", option = "db-name" },
       { package = "app-change-control", option = "jwt-secret" },
+      { package = "app-change-control", option = "entra-client-id" },
+      { package = "app-change-control", option = "entra-tenant-id" },
     ]
     cluster_selection = local.cluster
     cluster_path      = local.cluster_path
@@ -67,11 +69,35 @@ locals {
   service_port        = tonumber(local.config["app-change-control_service-port"])
   replicas            = tonumber(local.config["app-change-control_replicas"])
   database_name       = local.config["app-change-control_db-name"]
+  entra_client_id     = local.config["app-change-control_entra-client-id"]
+  entra_tenant_id     = local.config["app-change-control_entra-tenant-id"]
   database_url        = "postgresql://${urlencode(local.config["aws-rds-postgres_db-username"])}:${urlencode(local.config["aws-rds-postgres_db-password"])}@${local.config["aws-rds-postgres_endpoint"]}:${local.config["aws-rds-postgres_db-port"]}/${local.database_name}"
   public_app_base_url = "https://${local.app_fqdn}"
   app_labels = {
     app = "${local.app_name}-web"
   }
+  app_env = merge({
+    APP_BASE_URL          = local.public_app_base_url
+    DATABASE_URL          = local.database_url
+    JWT_SECRET            = local.config["app-change-control_jwt-secret"]
+    NODE_ENV              = "production"
+    PGDATABASE            = local.database_name
+    PGHOST                = local.config["aws-rds-postgres_endpoint"]
+    PGPASSWORD            = local.config["aws-rds-postgres_db-password"]
+    PGPORT                = local.config["aws-rds-postgres_db-port"]
+    PGUSER                = local.config["aws-rds-postgres_db-username"]
+    PORT                  = tostring(local.server_port)
+    CLIENT_PORT           = tostring(local.container_port)
+    API_TARGET            = "http://127.0.0.1:${local.server_port}"
+    PREVIEW_ALLOWED_HOSTS = local.app_fqdn
+    },
+    local.entra_client_id != "" ? {
+      ENTRA_CLIENT_ID = local.entra_client_id
+    } : {},
+    local.entra_tenant_id != "" ? {
+      ENTRA_TENANT_ID = local.entra_tenant_id
+    } : {},
+  )
 }
 
 variable "kubeconfig" {
@@ -103,21 +129,7 @@ resource "kubernetes_secret_v1" "app_env" {
     namespace = kubernetes_namespace_v1.app.metadata[0].name
   }
 
-  data = {
-    APP_BASE_URL          = local.public_app_base_url
-    DATABASE_URL          = local.database_url
-    JWT_SECRET            = local.config["app-change-control_jwt-secret"]
-    NODE_ENV              = "production"
-    PGDATABASE            = local.database_name
-    PGHOST                = local.config["aws-rds-postgres_endpoint"]
-    PGPASSWORD            = local.config["aws-rds-postgres_db-password"]
-    PGPORT                = local.config["aws-rds-postgres_db-port"]
-    PGUSER                = local.config["aws-rds-postgres_db-username"]
-    PORT                  = tostring(local.server_port)
-    CLIENT_PORT           = tostring(local.container_port)
-    API_TARGET            = "http://127.0.0.1:${local.server_port}"
-    PREVIEW_ALLOWED_HOSTS = local.app_fqdn
-  }
+  data = local.app_env
 
   type = "Opaque"
 }

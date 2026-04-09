@@ -4,3 +4,4 @@ kubeconfig
 _state
 *key
 workload-environment
+entra-*
