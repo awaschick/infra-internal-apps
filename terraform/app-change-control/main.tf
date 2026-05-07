@@ -98,6 +98,7 @@ locals {
       ENTRA_TENANT_ID = local.entra_tenant_id
     } : {},
   )
+  app_env_checksum = sha256(jsonencode(local.app_env))
 }
 
 variable "kubeconfig" {
@@ -151,6 +152,9 @@ resource "kubernetes_deployment_v1" "app" {
     template {
       metadata {
         labels = local.app_labels
+        annotations = {
+          "checksum/app-env" = local.app_env_checksum
+        }
       }
 
       spec {
@@ -225,6 +229,10 @@ resource "kubernetes_service_v1" "app" {
 resource "aws_acm_certificate" "app" {
   domain_name       = local.app_fqdn
   validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_route53_record" "app_validation" {
