@@ -35,6 +35,9 @@ override.tf.json
 # Include tfplan files to ignore the plan output of command: terraform plan -out=tfplan
 # example: *tfplan*
 
+# Local database backup artifacts created by operational scripts
+db/backups/
+
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc

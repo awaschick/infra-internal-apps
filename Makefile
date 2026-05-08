@@ -69,24 +69,24 @@ all:
 
 	@echo "\033[1mDeclarative Infrastructure Commands:\033[0m"
 	@echo "  make tf-init  - Install Terraform executable into a local .venv in this directory"
-	@echo "  make tf-start {plan} - Deploy one of the terraform plans found in the \033[3m/infrastructure/terraform\033[0m directory"
+	@echo "  make tf-start {plan} {WORKSPACE=name?} - Deploy one of the terraform plans found in the \033[3m/infrastructure/terraform\033[0m directory"
 	@echo "  make tf-stop {plan} - Terminate one of the terraform plans on the target system"
-	@echo "  make tf-plan {plan} - Review target state, show proposed deployment steps for a given plan"
+	@echo "  make tf-plan {plan} {WORKSPACE=name?} - Review target state, show proposed deployment steps for a given plan"
 # 	@echo "  make tf-import {plan}  - Synchronize the current infrastructure state against the TF module's local state"
 	@echo ""
 
-	@echo "\033[1mApplication Management Commands:\033[0m"
-	@echo "  \033[1mApache Doris:\033[0m"
-	@echo "    make doris-ready-check {namespace?} - Fail unless FE master/quorum, BE alive, and Doris pods are Ready"
-	@echo "    make doris-memory-vitals {namespace?} - Check Doris memory pressure, spill-state health, and OOM risk"
-	@echo "    make doris-be-log-audit {namespace?} {since?} - Scan all BE pod logs for memory exhaustion errors"
-	@echo "      {NAMESPACE=...} {SINCE=4h} {TAIL_LINES=200} {QID=...} {MEMORY_GREP=...}"
-	@echo "    make doris-sync-root-password {namespace?} {CURRENT_ROOT_PASSWORD=...} {FORCE=1} - Sync FE root password to config/doris/root-password"
-	@echo "    make doris-pv-usage {namespace?} - Show Doris PVCs and FE/BE/CN volume usage"
-	@echo "    make doris-pv-resize {namespace?} - Resize existing Doris BE/FE PVCs to configured sizes"
-	@echo "    make doris-force-redeploy {namespace?} {NAMESPACE=...} {FORCE=1} {NO_WAIT=1} {GROUP_PAUSE_SECONDS=10} {DORIS_GROUP=fe|be|cn|broker} "
-	@echo "      Restart FE->BE->CN->Broker (each highest index to lowest)"
-	@echo "    make doris-recovery-status {namespace?} {DORIS_CLUSTER=...} - Show Doris recovery diagnostics and cluster health"
+# 	@echo "\033[1mApplication Management Commands:\033[0m"
+# 	@echo "  \033[1mApache Doris:\033[0m"
+# 	@echo "    make doris-ready-check {namespace?} - Fail unless FE master/quorum, BE alive, and Doris pods are Ready"
+# 	@echo "    make doris-memory-vitals {namespace?} - Check Doris memory pressure, spill-state health, and OOM risk"
+# 	@echo "    make doris-be-log-audit {namespace?} {since?} - Scan all BE pod logs for memory exhaustion errors"
+# 	@echo "      {NAMESPACE=...} {SINCE=4h} {TAIL_LINES=200} {QID=...} {MEMORY_GREP=...}"
+# 	@echo "    make doris-sync-root-password {namespace?} {CURRENT_ROOT_PASSWORD=...} {FORCE=1} - Sync FE root password to config/doris/root-password"
+# 	@echo "    make doris-pv-usage {namespace?} - Show Doris PVCs and FE/BE/CN volume usage"
+# 	@echo "    make doris-pv-resize {namespace?} - Resize existing Doris BE/FE PVCs to configured sizes"
+# 	@echo "    make doris-force-redeploy {namespace?} {NAMESPACE=...} {FORCE=1} {NO_WAIT=1} {GROUP_PAUSE_SECONDS=10} {DORIS_GROUP=fe|be|cn|broker} "
+# 	@echo "      Restart FE->BE->CN->Broker (each highest index to lowest)"
+# 	@echo "    make doris-recovery-status {namespace?} {DORIS_CLUSTER=...} - Show Doris recovery diagnostics and cluster health"
 
 
 # build:
@@ -129,15 +129,15 @@ tf-init:
 
 tf-start:
 	$(call run, $(s_check_selection) )
-	$(call run, $(s_terraform_start),$(filter-out $@,$(MAKECMDGOALS)))
+	$(call run, $(s_terraform_start),$(filter-out $@,$(MAKECMDGOALS)) $(if $(WORKSPACE),--workspace $(WORKSPACE),))
 
 tf-stop:
 	$(call run, $(s_check_selection) )
-	$(call run, $(s_terraform_stop),$(filter-out $@,$(MAKECMDGOALS)))
+	$(call run, $(s_terraform_stop),$(filter-out $@,$(MAKECMDGOALS)) $(if $(WORKSPACE),--workspace $(WORKSPACE),))
 
 tf-plan:
 	$(call run, $(s_check_selection) )
-	$(call run, $(s_terraform_plan),$(filter-out $@,$(MAKECMDGOALS)))
+	$(call run, $(s_terraform_plan),$(filter-out $@,$(MAKECMDGOALS)) $(if $(WORKSPACE),--workspace $(WORKSPACE),))
 
 # tf-import:
 # 	$(call run, $(s_check_selection) )

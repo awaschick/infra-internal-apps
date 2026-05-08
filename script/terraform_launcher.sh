@@ -4,6 +4,8 @@ source "$(dirname "$0")/common.sh"
 component="undefined"
 dev="0"
 restore_backup="0"
+workspace="${TF_WORKSPACE:-default}"
+unset TF_WORKSPACE
 
 if [[ ! -z $1 ]]; then
     if [[ ! $1 == *"--"* ]]; then
@@ -35,7 +37,12 @@ tf_exec()
     source ./.venv/bin/activate
     rm -f "${alias_cluster_state_path}"
     ln -s "${cluster_state_path}" "${alias_cluster_state_path}"
-    cd "${terraform_path}/${package}" && terraform init
+    if [ "${workspace}" != "default" ]; then
+        mkdir -p "${cluster_config_path}/${package}/_instances/${workspace}"
+    fi
+
+    cd "${terraform_path}/${package}" && terraform init -reconfigure
+    cd "${terraform_path}/${package}" && terraform workspace select "${workspace}" >/dev/null 2>&1 || terraform workspace new "${workspace}"
 
     if [ ${mode} = "start" ]; then
         if [ -f "${terraform_path}/${package}/_init/start.sh" ]; then
@@ -74,4 +81,3 @@ case $component in
         tf_exec ${component}
     ;;
 esac
-

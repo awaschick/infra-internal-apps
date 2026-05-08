@@ -1,0 +1,13 @@
+{ %{ for config_key, config_value in options }
+"${config_value.package}_${config_value.option}": ${jsonencode(chomp(file(
+  fileexists("${cluster_path}/${config_value.package}/_instances/${instance_name}/${config_value.option}") ? "${cluster_path}/${config_value.package}/_instances/${instance_name}/${config_value.option}" :
+  fileexists("${cluster_path}/${config_value.package}/${config_value.option}") ? "${cluster_path}/${config_value.package}/${config_value.option}" :
+  "${common_path}/${config_value.package}/${config_value.option}"
+)))},
+%{ endfor ~}
+"cluster_selection": "${cluster_selection}",
+"cluster_path": "${cluster_path}",
+"common_path": "${common_path}",
+"instance_name": "${instance_name}",
+"instance_path": "${cluster_path}/${module_name}/_instances/${instance_name}"
+}

@@ -1,7 +1,8 @@
 terraform {
   required_version = ">= 1.5"
   backend "local" {
-    path = "../_state/app-change-control"
+    path          = "../_state/app-change-control"
+    workspace_dir = "../_state/app-change-control-workspaces"
   }
   required_providers {
     aws = {
@@ -20,9 +21,13 @@ terraform {
 }
 
 locals {
-  cluster      = trimspace(file("../../config/_clusters/selection"))
-  cluster_path = "../../config/_clusters/${local.cluster}"
-  config = jsondecode(templatefile("../_helpers/config.tmpl", {
+  module_name          = "app-change-control"
+  cluster              = trimspace(file("../../config/_clusters/selection"))
+  cluster_path         = "../../config/_clusters/${local.cluster}"
+  deployment_instance  = terraform.workspace
+  instance_name        = local.deployment_instance == "default" ? "" : local.deployment_instance
+  instance_config_path = local.instance_name == "" ? "${local.cluster_path}/${local.module_name}" : "${local.cluster_path}/${local.module_name}/_instances/${local.instance_name}"
+  config = jsondecode(templatefile("../_helpers/config-instance.tmpl", {
     options = [
       { package = "aws", option = "region" },
       { package = "aws", option = "aws-access-key" },
@@ -55,6 +60,8 @@ locals {
     cluster_selection = local.cluster
     cluster_path      = local.cluster_path
     common_path       = "../../config/"
+    module_name       = local.module_name
+    instance_name     = local.instance_name
   }))
 
   app_name            = local.config["app-change-control_app-name"]
@@ -313,10 +320,14 @@ resource "aws_route53_record" "app_cname" {
 }
 
 resource "local_file" "capture_https_fqdn" {
-  filename = "${local.cluster_path}/app-change-control/https-fqdn"
+  filename = "${local.instance_config_path}/https-fqdn"
   content  = local.public_app_base_url
 }
 
 output "app_change_control_url" {
   value = local.public_app_base_url
+}
+
+output "app_change_control_instance" {
+  value = local.deployment_instance
 }

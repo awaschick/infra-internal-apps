@@ -111,11 +111,35 @@ The `config` directory contains a lot of tiny text files, grouped into directori
 
 ### Config File Override Levels
 
-There are two levels to configuration files. 
+Most Terraform plans use two levels of configuration files.
 
 The first is what defines **generic, default, or local-development** values.  These are at the root of the config folder, and define stuff like the Docker registry we should be pushing to, how Terraform is configured, etc. There are a number of placeholder files with bogus values here, though, that serve as a guide to the **cluster-specific** values that are found in the `_clusters` directory. 
 
 This repo is built to eventually accommodate deploying the same project to multiple Kubernetes clusters. This is done by having multiple folders in the `_clusters` directory. You can choose which cluster you want to deploy to by editing the `config/_clusters/selection` file. Within each directory in`_clusters`, you'll find a partial copy of the folders in the root `config` directory.  If a config file for a specific setting is found in the selected cluster config directory, it will be used instead of the generic value in the root config. 
+
+Some app deployment plans, starting with `app-change-control`, also support instance-specific overrides tied to the selected Terraform workspace. Instance overrides live under the package config directory:
+
+```text
+config/_clusters/<cluster>/<package>/_instances/<workspace>/<option>
+```
+
+For those plans, lookup order is:
+
+1. `config/_clusters/<cluster>/<package>/_instances/<workspace>/<option>`
+2. `config/_clusters/<cluster>/<package>/<option>`
+3. `config/<package>/<option>`
+
+Use the default workspace for the unqualified instance, and named workspaces for staged instances:
+
+```bash
+make tf-plan app-change-control
+make tf-plan app-change-control WORKSPACE=dev
+make tf-start app-change-control WORKSPACE=dev
+```
+
+The selected workspace also gets its own Terraform state, so `dev`, `tst`, `uat`, and `prod` instances can coexist without overwriting each other's managed resources.
+
+Only use `WORKSPACE=...` with Terraform plans that explicitly support instance-specific configuration. Singleton/platform plans such as VPC, EKS, RDS, ingress controllers, cert-manager, Tailscale, and other shared cluster services should normally be run without `WORKSPACE`. Running a singleton plan in a named workspace creates separate Terraform state for the same real-world resources, which can cause confusing drift, duplicate create attempts, or future cleanup trouble.
 
 Before you start working with a fresh pull of this repo, though, there will be a number of files that won't be there, since they'd contain credentials or other sensitive data.  We'll have to supply those ourselves, using the instructions below.
 
@@ -131,7 +155,30 @@ You can override those per cluster with:
 - `config/_clusters/<cluster>/app-change-control/entra-client-id`
 - `config/_clusters/<cluster>/app-change-control/entra-tenant-id`
 
+Or per deployment instance with:
+
+- `config/_clusters/<cluster>/app-change-control/_instances/<workspace>/entra-client-id`
+- `config/_clusters/<cluster>/app-change-control/_instances/<workspace>/entra-tenant-id`
+
 If these files are populated, Terraform will inject `ENTRA_CLIENT_ID` and `ENTRA_TENANT_ID` into the `changecontrol-env` Kubernetes secret for the application pod. Leave them blank until you have the real Entra app registration values you want to deploy.
+
+### Workspace database replicas
+
+Before deploying a non-default workspace for an app package that follows the `app-change-control` config pattern, give it its own database name under the instance config:
+
+```text
+config/_clusters/<cluster>/<package>/_instances/<workspace>/db-name
+```
+
+Then clone the current default database into that workspace database:
+
+```bash
+./script/replicate_workspace_database.sh --package app-change-control --workspace dev
+```
+
+If the target database already exists and should be rebuilt from the current default state, add `--replace`. The script reads the selected cluster's Postgres endpoint, port, user, and password from `config`, uses `<package>/db-name` as the default source database, restores into `<package>/_instances/<workspace>/db-name` when present, and verifies relation and row counts before exiting.
+
+When you run `make tf-start app-change-control WORKSPACE=<workspace>`, the module's start hook asks whether to run this replication before Terraform apply. The default workspace skips this prompt.
 
 ### Config files you'll need to supply on your own
 
