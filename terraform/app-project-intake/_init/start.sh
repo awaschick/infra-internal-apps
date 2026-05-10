@@ -1,7 +1,7 @@
 #!/bin/bash
 
 current_workspace="${workspace:-${TF_WORKSPACE:-default}}"
-current_package="${package:-project-intake-portal}"
+current_package="${package:-app-project-intake}"
 divider="-------------------------------------------------------------------------------------"
 if [ -n "${div:-}" ]; then
     divider="${div}"

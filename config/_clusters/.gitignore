@@ -2,6 +2,7 @@ kubeconfig
 *secret
 *password
 _state
-*key
+*key*
 workload-environment
 entra-*
+*token

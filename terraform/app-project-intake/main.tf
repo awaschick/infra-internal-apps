@@ -1,8 +1,8 @@
 terraform {
   required_version = ">= 1.5"
   backend "local" {
-    path          = "../_state/project-intake-portal"
-    workspace_dir = "../_state/project-intake-portal-workspaces"
+    path          = "../_state/app-project-intake"
+    workspace_dir = "../_state/app-project-intake-workspaces"
   }
   required_providers {
     aws = {
@@ -21,7 +21,7 @@ terraform {
 }
 
 locals {
-  module_name          = "project-intake-portal"
+  module_name          = "app-project-intake"
   cluster              = trimspace(file("../../config/_clusters/selection"))
   cluster_path         = "../../config/_clusters/${local.cluster}"
   deployment_instance  = terraform.workspace
@@ -41,36 +41,36 @@ locals {
       { package = "aws-rds-postgres", option = "db-username" },
       { package = "aws-rds-postgres", option = "db-password" },
 
-      { package = "project-intake-portal", option = "app-name" },
-      { package = "project-intake-portal", option = "kubernetes-namespace" },
-      { package = "project-intake-portal", option = "node-group-name" },
-      { package = "project-intake-portal", option = "alb-name" },
-      { package = "project-intake-portal", option = "site-hostname" },
-      { package = "project-intake-portal", option = "image-uri" },
-      { package = "project-intake-portal", option = "image-pull-policy" },
-      { package = "project-intake-portal", option = "container-port" },
-      { package = "project-intake-portal", option = "service-port" },
-      { package = "project-intake-portal", option = "replicas" },
-      { package = "project-intake-portal", option = "db-name" },
-      { package = "project-intake-portal", option = "jwt-secret" },
-      { package = "project-intake-portal", option = "jwt-issuer" },
-      { package = "project-intake-portal", option = "log-level" },
-      { package = "project-intake-portal", option = "storage-class" },
-      { package = "project-intake-portal", option = "project-files-volume-size" },
-      { package = "project-intake-portal", option = "seed-database-on-start" },
-      { package = "project-intake-portal", option = "anthropic-api-key" },
-      { package = "project-intake-portal", option = "openai-api-key" },
-      { package = "project-intake-portal", option = "slack-bot-token" },
-      { package = "project-intake-portal", option = "slack-app-token" },
-      { package = "project-intake-portal", option = "slack-signing-secret" },
-      { package = "project-intake-portal", option = "azure-tenant-id" },
-      { package = "project-intake-portal", option = "azure-client-id" },
-      { package = "project-intake-portal", option = "azure-client-secret" },
-      { package = "project-intake-portal", option = "dropbox-access-token" },
-      { package = "project-intake-portal", option = "granola-api-key" },
-      { package = "project-intake-portal", option = "google-service-account-key-json" },
-      { package = "project-intake-portal", option = "spreadsheet-id" },
-      { package = "project-intake-portal", option = "sheet-name" },
+      { package = "app-project-intake", option = "app-name" },
+      { package = "app-project-intake", option = "kubernetes-namespace" },
+      { package = "app-project-intake", option = "node-group-name" },
+      { package = "app-project-intake", option = "alb-name" },
+      { package = "app-project-intake", option = "site-hostname" },
+      { package = "app-project-intake", option = "image-uri" },
+      { package = "app-project-intake", option = "image-pull-policy" },
+      { package = "app-project-intake", option = "container-port" },
+      { package = "app-project-intake", option = "service-port" },
+      { package = "app-project-intake", option = "replicas" },
+      { package = "app-project-intake", option = "db-name" },
+      { package = "app-project-intake", option = "jwt-secret" },
+      { package = "app-project-intake", option = "log-level" },
+      { package = "app-project-intake", option = "storage-class" },
+      { package = "app-project-intake", option = "project-files-volume-size" },
+      { package = "app-project-intake", option = "seed-database-on-start" },
+      { package = "app-project-intake", option = "anthropic-api-key" },
+      { package = "app-project-intake", option = "openai-api-key" },
+      { package = "app-project-intake", option = "slack-bot-token" },
+      { package = "app-project-intake", option = "slack-app-token" },
+      { package = "app-project-intake", option = "slack-signing-secret" },
+      { package = "app-project-intake", option = "azure-tenant-id" },
+      { package = "app-project-intake", option = "azure-client-id" },
+      { package = "app-project-intake", option = "azure-client-secret" },
+      { package = "app-project-intake", option = "dropbox-access-token" },
+      { package = "app-project-intake", option = "granola-api-key" },
+      { package = "app-project-intake", option = "google-service-account-key-json" },
+      { package = "app-project-intake", option = "spreadsheet-id" },
+      { package = "app-project-intake", option = "sheet-name" },
+      { package = "app-project-intake", option = "sizing-sheet-name" },
     ]
     cluster_selection = local.cluster
     cluster_path      = local.cluster_path
@@ -79,19 +79,19 @@ locals {
     instance_name     = local.instance_name
   }))
 
-  app_name                  = local.config["project-intake-portal_app-name"]
-  namespace_name            = local.config["project-intake-portal_kubernetes-namespace"]
-  app_hostname              = local.config["project-intake-portal_site-hostname"]
+  app_name                  = local.config["app-project-intake_app-name"]
+  namespace_name            = local.config["app-project-intake_kubernetes-namespace"]
+  app_hostname              = local.config["app-project-intake_site-hostname"]
   app_fqdn                  = "${local.app_hostname}.${local.config["cluster_site-domain"]}"
-  alb_name                  = local.config["project-intake-portal_alb-name"]
-  image_uri                 = local.config["project-intake-portal_image-uri"]
-  image_pull_policy         = local.config["project-intake-portal_image-pull-policy"]
-  container_port            = tonumber(local.config["project-intake-portal_container-port"])
-  service_port              = tonumber(local.config["project-intake-portal_service-port"])
-  replicas                  = tonumber(local.config["project-intake-portal_replicas"])
-  database_name             = local.config["project-intake-portal_db-name"]
-  storage_class             = local.config["project-intake-portal_storage-class"]
-  project_files_volume_size = local.config["project-intake-portal_project-files-volume-size"]
+  alb_name                  = local.config["app-project-intake_alb-name"]
+  image_uri                 = local.config["app-project-intake_image-uri"]
+  image_pull_policy         = local.config["app-project-intake_image-pull-policy"]
+  container_port            = tonumber(local.config["app-project-intake_container-port"])
+  service_port              = tonumber(local.config["app-project-intake_service-port"])
+  replicas                  = tonumber(local.config["app-project-intake_replicas"])
+  database_name             = local.config["app-project-intake_db-name"]
+  storage_class             = local.config["app-project-intake_storage-class"]
+  project_files_volume_size = local.config["app-project-intake_project-files-volume-size"]
   database_url              = "postgresql://${urlencode(local.config["aws-rds-postgres_db-username"])}:${urlencode(local.config["aws-rds-postgres_db-password"])}@${local.config["aws-rds-postgres_endpoint"]}:${local.config["aws-rds-postgres_db-port"]}/${local.database_name}"
   public_app_base_url       = "https://${local.app_fqdn}"
   project_files_dir         = "/app/backend/data/project-files"
@@ -100,31 +100,30 @@ locals {
   }
   optional_app_env = {
     for key, value in {
-      ANTHROPIC_API_KEY               = local.config["project-intake-portal_anthropic-api-key"]
-      OPENAI_API_KEY                  = local.config["project-intake-portal_openai-api-key"]
-      SLACK_BOT_TOKEN                 = local.config["project-intake-portal_slack-bot-token"]
-      SLACK_APP_TOKEN                 = local.config["project-intake-portal_slack-app-token"]
-      SLACK_SIGNING_SECRET            = local.config["project-intake-portal_slack-signing-secret"]
-      AZURE_TENANT_ID                 = local.config["project-intake-portal_azure-tenant-id"]
-      AZURE_CLIENT_ID                 = local.config["project-intake-portal_azure-client-id"]
-      AZURE_CLIENT_SECRET             = local.config["project-intake-portal_azure-client-secret"]
-      DROPBOX_ACCESS_TOKEN            = local.config["project-intake-portal_dropbox-access-token"]
-      GRANOLA_API_KEY                 = local.config["project-intake-portal_granola-api-key"]
-      GOOGLE_SERVICE_ACCOUNT_KEY_JSON = local.config["project-intake-portal_google-service-account-key-json"]
-      SPREADSHEET_ID                  = local.config["project-intake-portal_spreadsheet-id"]
-      SHEET_NAME                      = local.config["project-intake-portal_sheet-name"]
+      ANTHROPIC_API_KEY               = local.config["app-project-intake_anthropic-api-key"]
+      OPENAI_API_KEY                  = local.config["app-project-intake_openai-api-key"]
+      SLACK_BOT_TOKEN                 = local.config["app-project-intake_slack-bot-token"]
+      SLACK_APP_TOKEN                 = local.config["app-project-intake_slack-app-token"]
+      SLACK_SIGNING_SECRET            = local.config["app-project-intake_slack-signing-secret"]
+      AZURE_TENANT_ID                 = local.config["app-project-intake_azure-tenant-id"]
+      AZURE_CLIENT_ID                 = local.config["app-project-intake_azure-client-id"]
+      AZURE_CLIENT_SECRET             = local.config["app-project-intake_azure-client-secret"]
+      DROPBOX_ACCESS_TOKEN            = local.config["app-project-intake_dropbox-access-token"]
+      GRANOLA_API_KEY                 = local.config["app-project-intake_granola-api-key"]
+      GOOGLE_SERVICE_ACCOUNT_KEY_JSON = local.config["app-project-intake_google-service-account-key-json"]
+      SPREADSHEET_ID                  = local.config["app-project-intake_spreadsheet-id"]
+      SHEET_NAME                      = local.config["app-project-intake_sheet-name"]
+      SIZING_SHEET_NAME               = local.config["app-project-intake_sizing-sheet-name"]
     } : key => value if trimspace(value) != ""
   }
   app_env = merge({
     ALLOWED_ORIGIN          = local.public_app_base_url
-    APP_BASE_URL            = local.public_app_base_url
     AZURE_REDIRECT_URI      = "${local.public_app_base_url}/api/auth/azure/callback"
     DATABASE_URL            = local.database_url
     FRONTEND_DIST_DIR       = "/app/frontend/dist"
-    JWT_SECRET              = local.config["project-intake-portal_jwt-secret"]
-    JWT_ISSUER              = local.config["project-intake-portal_jwt-issuer"]
+    JWT_SECRET              = local.config["app-project-intake_jwt-secret"]
     LOG_DIR                 = "/app/backend/logs"
-    LOG_LEVEL               = local.config["project-intake-portal_log-level"]
+    LOG_LEVEL               = local.config["app-project-intake_log-level"]
     NODE_ENV                = "production"
     PGDATABASE              = local.database_name
     PGHOST                  = local.config["aws-rds-postgres_endpoint"]
@@ -136,7 +135,7 @@ locals {
     PORTAL_DATA_DIR         = "/app/backend/data"
     PROJECT_FILES_DIR       = local.project_files_dir
     RUN_DATABASE_MIGRATIONS = "true"
-    SEED_DATABASE_ON_START  = local.config["project-intake-portal_seed-database-on-start"]
+    SEED_DATABASE_ON_START  = local.config["app-project-intake_seed-database-on-start"]
   }, local.optional_app_env)
   app_env_checksum = sha256(jsonencode(local.app_env))
 }
@@ -159,7 +158,7 @@ resource "kubernetes_namespace_v1" "app" {
   metadata {
     name = local.namespace_name
     labels = {
-      "scheduling.atlas/default-node-group" = local.config["project-intake-portal_node-group-name"]
+      "scheduling.atlas/default-node-group" = local.config["app-project-intake_node-group-name"]
     }
   }
 }
@@ -377,10 +376,10 @@ resource "local_file" "capture_https_fqdn" {
   content  = local.public_app_base_url
 }
 
-output "project_intake_portal_url" {
+output "app_project_intake_url" {
   value = local.public_app_base_url
 }
 
-output "project_intake_portal_instance" {
+output "app_project_intake_instance" {
   value = local.deployment_instance
 }
