@@ -62,9 +62,9 @@ locals {
       { package = "app-project-intake", option = "slack-bot-token" },
       { package = "app-project-intake", option = "slack-app-token" },
       { package = "app-project-intake", option = "slack-signing-secret" },
-      { package = "app-project-intake", option = "azure-tenant-id" },
-      { package = "app-project-intake", option = "azure-client-id" },
-      { package = "app-project-intake", option = "azure-client-secret" },
+      { package = "app-project-intake", option = "entra-tenant-id" },
+      { package = "app-project-intake", option = "entra-client-id" },
+      { package = "app-project-intake", option = "entra-client-secret" },
       { package = "app-project-intake", option = "dropbox-access-token" },
       { package = "app-project-intake", option = "granola-api-key" },
       { package = "app-project-intake", option = "google-service-account-key-json" },
@@ -105,9 +105,9 @@ locals {
       SLACK_BOT_TOKEN                 = local.config["app-project-intake_slack-bot-token"]
       SLACK_APP_TOKEN                 = local.config["app-project-intake_slack-app-token"]
       SLACK_SIGNING_SECRET            = local.config["app-project-intake_slack-signing-secret"]
-      AZURE_TENANT_ID                 = local.config["app-project-intake_azure-tenant-id"]
-      AZURE_CLIENT_ID                 = local.config["app-project-intake_azure-client-id"]
-      AZURE_CLIENT_SECRET             = local.config["app-project-intake_azure-client-secret"]
+      AZURE_TENANT_ID                 = local.config["app-project-intake_entra-tenant-id"]
+      AZURE_CLIENT_ID                 = local.config["app-project-intake_entra-client-id"]
+      AZURE_CLIENT_SECRET             = local.config["app-project-intake_entra-client-secret"]
       DROPBOX_ACCESS_TOKEN            = local.config["app-project-intake_dropbox-access-token"]
       GRANOLA_API_KEY                 = local.config["app-project-intake_granola-api-key"]
       GOOGLE_SERVICE_ACCOUNT_KEY_JSON = local.config["app-project-intake_google-service-account-key-json"]
@@ -175,6 +175,8 @@ resource "kubernetes_secret_v1" "app_env" {
 }
 
 resource "kubernetes_persistent_volume_claim_v1" "project_files" {
+  wait_until_bound = false
+
   metadata {
     name      = "${local.app_name}-project-files"
     namespace = kubernetes_namespace_v1.app.metadata[0].name
@@ -215,6 +217,17 @@ resource "kubernetes_deployment_v1" "app" {
       }
 
       spec {
+        node_selector = {
+          "workload.atlas/node-group" = local.config["app-project-intake_node-group-name"]
+        }
+
+        toleration {
+          key      = "workload.atlas/node-group"
+          operator = "Equal"
+          value    = local.config["app-project-intake_node-group-name"]
+          effect   = "NoSchedule"
+        }
+
         container {
           name              = local.app_name
           image             = local.image_uri

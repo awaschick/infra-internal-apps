@@ -143,24 +143,26 @@ Only use `WORKSPACE=...` with Terraform plans that explicitly support instance-s
 
 Before you start working with a fresh pull of this repo, though, there will be a number of files that won't be there, since they'd contain credentials or other sensitive data.  We'll have to supply those ourselves, using the instructions below.
 
-### App Change Control Entra config
+### Subject app Entra config
 
-The `app-change-control` Terraform plan now reads Microsoft Entra settings from:
+Subject app Terraform plans read Microsoft Entra settings from package-scoped `entra-*` config files. For example:
 
 - `config/app-change-control/entra-client-id`
 - `config/app-change-control/entra-tenant-id`
+- `config/app-project-intake/entra-client-id`
+- `config/app-project-intake/entra-tenant-id`
 
 You can override those per cluster with:
 
-- `config/_clusters/<cluster>/app-change-control/entra-client-id`
-- `config/_clusters/<cluster>/app-change-control/entra-tenant-id`
+- `config/_clusters/<cluster>/<package>/entra-client-id`
+- `config/_clusters/<cluster>/<package>/entra-tenant-id`
 
 Or per deployment instance with:
 
-- `config/_clusters/<cluster>/app-change-control/_instances/<workspace>/entra-client-id`
-- `config/_clusters/<cluster>/app-change-control/_instances/<workspace>/entra-tenant-id`
+- `config/_clusters/<cluster>/<package>/_instances/<workspace>/entra-client-id`
+- `config/_clusters/<cluster>/<package>/_instances/<workspace>/entra-tenant-id`
 
-If these files are populated, Terraform will inject `ENTRA_CLIENT_ID` and `ENTRA_TENANT_ID` into the `changecontrol-env` Kubernetes secret for the application pod. Leave them blank until you have the real Entra app registration values you want to deploy.
+Some apps also need `entra-client-secret`. If these files are populated, Terraform injects them into the app's Kubernetes secret using the runtime env names that app expects. Leave them blank until you have the real Entra app registration values you want to deploy.
 
 ### Workspace database replicas
 
