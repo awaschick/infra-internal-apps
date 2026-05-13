@@ -92,7 +92,7 @@ locals {
   database_name             = local.config["app-project-intake_db-name"]
   storage_class             = local.config["app-project-intake_storage-class"]
   project_files_volume_size = local.config["app-project-intake_project-files-volume-size"]
-  database_url              = "postgresql://${urlencode(local.config["aws-rds-postgres_db-username"])}:${urlencode(local.config["aws-rds-postgres_db-password"])}@${local.config["aws-rds-postgres_endpoint"]}:${local.config["aws-rds-postgres_db-port"]}/${local.database_name}"
+  database_url              = "postgresql://${urlencode(local.config["aws-rds-postgres_db-username"])}:${urlencode(local.config["aws-rds-postgres_db-password"])}@${local.config["aws-rds-postgres_endpoint"]}:${local.config["aws-rds-postgres_db-port"]}/${local.database_name}?uselibpqcompat=true&sslmode=require"
   public_app_base_url       = "https://${local.app_fqdn}"
   project_files_dir         = "/app/backend/data/project-files"
   app_labels = {
