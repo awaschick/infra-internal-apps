@@ -65,7 +65,9 @@ locals {
       { package = "app-project-intake", option = "entra-tenant-id" },
       { package = "app-project-intake", option = "entra-client-id" },
       { package = "app-project-intake", option = "entra-client-secret" },
-      { package = "app-project-intake", option = "dropbox-access-token" },
+      { package = "app-project-intake", option = "dropbox-app-key" },
+      { package = "app-project-intake", option = "dropbox-app-secret" },
+      { package = "app-project-intake", option = "dropbox-refresh-token" },
       { package = "app-project-intake", option = "granola-api-key" },
       { package = "app-project-intake", option = "google-service-account-key-json" },
       { package = "app-project-intake", option = "spreadsheet-id" },
@@ -108,7 +110,9 @@ locals {
       AZURE_TENANT_ID                 = local.config["app-project-intake_entra-tenant-id"]
       AZURE_CLIENT_ID                 = local.config["app-project-intake_entra-client-id"]
       AZURE_CLIENT_SECRET             = local.config["app-project-intake_entra-client-secret"]
-      DROPBOX_ACCESS_TOKEN            = local.config["app-project-intake_dropbox-access-token"]
+      DROPBOX_APP_KEY                 = local.config["app-project-intake_dropbox-app-key"]
+      DROPBOX_APP_SECRET              = local.config["app-project-intake_dropbox-app-secret"]
+      DROPBOX_REFRESH_TOKEN           = local.config["app-project-intake_dropbox-refresh-token"]
       GRANOLA_API_KEY                 = local.config["app-project-intake_granola-api-key"]
       GOOGLE_SERVICE_ACCOUNT_KEY_JSON = local.config["app-project-intake_google-service-account-key-json"]
       SPREADSHEET_ID                  = local.config["app-project-intake_spreadsheet-id"]
