@@ -56,6 +56,7 @@ locals {
       { package = "app-atlas-construct", option = "core-preview-urls-path" },
       { package = "app-atlas-construct", option = "log-dir" },
       { package = "app-atlas-construct", option = "morpheus-data-dir" },
+      { package = "app-atlas-construct", option = "architect-token" },
       { package = "app-atlas-construct", option = "entra-client-id" },
       { package = "app-atlas-construct", option = "entra-tenant-id" },
       { package = "app-atlas-construct", option = "vite-entra-client-id" },
@@ -109,6 +110,7 @@ locals {
       ENTRA_TENANT_ID      = local.config["app-atlas-construct_entra-tenant-id"]
       VITE_ENTRA_CLIENT_ID = local.vite_entra_client_id
       VITE_ENTRA_TENANT_ID = local.vite_entra_tenant_id
+      ARCHITECT_TOKEN      = local.config["app-atlas-construct_architect-token"]
       ANTHROPIC_API_KEY    = local.config["app-atlas-construct_anthropic-api-key"]
       OPENAI_API_KEY       = local.config["app-atlas-construct_openai-api-key"]
       BIGQUERY_PROJECT_ID  = local.config["app-atlas-construct_bigquery-project-id"]
