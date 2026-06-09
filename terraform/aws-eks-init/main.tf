@@ -223,6 +223,28 @@ resource "aws_eks_addon" "kube_proxy" {
   resolve_conflicts_on_create = "OVERWRITE"
 }
 
+resource "aws_eks_addon" "metrics_server" {
+  cluster_name                = module.eks.cluster_name
+  addon_name                  = "metrics-server"
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  configuration_values = jsonencode({
+    tolerations = [
+      {
+        key      = "CriticalAddonsOnly"
+        operator = "Exists"
+      },
+      {
+        key      = "workload.atlas/node-group"
+        operator = "Equal"
+        value    = "platform"
+        effect   = "NoSchedule"
+      }
+    ]
+  })
+}
+
 locals {
   # Map each managed node group's IAM role into the standard aws-auth role mapping.
   # This authorizes kubelet bootstrap + node registration.

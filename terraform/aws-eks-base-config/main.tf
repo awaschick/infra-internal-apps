@@ -23,6 +23,11 @@ terraform {
   }
 }
 
+moved {
+  from = kubectl_manifest.rancher_cattle_system_namespace
+  to   = kubectl_manifest.rancher_system_namespaces["cattle-system"]
+}
+
 
 # set variables prefixed with `local.`
 # These are defined by files in `config/{package}` and overridden by `_clusters/{selected cluster}/{package}
@@ -59,6 +64,17 @@ locals {
     common_path       = "../../config/"
     }
   ))
+
+  rancher_system_namespaces = toset([
+    "cattle-system",
+    "cattle-impersonation-system",
+    "cattle-fleet-system",
+  ])
+
+  rancher_system_namespace_patterns = [
+    "cattle-*",
+    "local",
+  ]
 }
 
 # this is set to /opt/kubeconfigs/default, which is a symlink to whichever cluster's kubeconfig is currently selected
@@ -440,6 +456,59 @@ YAML
   depends_on = [helm_release.kyverno]
 }
 
+resource "kubectl_manifest" "default_rancher_system_namespace_node_group" {
+  yaml_body = yamlencode({
+    apiVersion = "kyverno.io/v1"
+    kind       = "ClusterPolicy"
+    metadata = {
+      name = "default-rancher-system-namespace-node-group"
+    }
+    spec = {
+      background = false
+      rules = [
+        {
+          name = "add-rancher-system-ns-label"
+          match = {
+            any = [
+              {
+                resources = {
+                  kinds = ["Namespace"]
+                  names = local.rancher_system_namespace_patterns
+                }
+              }
+            ]
+          }
+          preconditions = {
+            any = [
+              {
+                key      = "{{ request.operation }}"
+                operator = "Equals"
+                value    = "CREATE"
+              },
+              {
+                key      = "{{ request.operation }}"
+                operator = "Equals"
+                value    = "UPDATE"
+              }
+            ]
+          }
+          mutate = {
+            patchStrategicMerge = {
+              metadata = {
+                labels = {
+                  "scheduling.atlas/default-node-group" = "platform"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  })
+
+  depends_on = [helm_release.kyverno]
+}
+
 resource "kubectl_manifest" "require_namespace_default_node_group" {
   yaml_body = <<YAML
 apiVersion: kyverno.io/v1
@@ -466,6 +535,11 @@ spec:
                 - kyverno
                 - default
                 - mount-s3
+                - cattle-system
+                - cattle-impersonation-system
+                - cattle-fleet-system
+                - cattle-*
+                - local
       validate:
         message: Namespace must define scheduling.atlas/default-node-group.
         pattern:
@@ -474,7 +548,29 @@ spec:
               scheduling.atlas/default-node-group: "?*"
 YAML
 
-  depends_on = [helm_release.kyverno]
+  depends_on = [
+    helm_release.kyverno,
+    kubectl_manifest.default_rancher_system_namespace_node_group,
+  ]
+}
+
+resource "kubectl_manifest" "rancher_system_namespaces" {
+  for_each = local.rancher_system_namespaces
+
+  yaml_body = <<YAML
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${each.value}
+  labels:
+    scheduling.atlas/default-node-group: platform
+YAML
+
+  depends_on = [kubectl_manifest.require_namespace_default_node_group]
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "kubernetes_storage_class_v1" "gp3_fast" {
