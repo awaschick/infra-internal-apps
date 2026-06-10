@@ -178,9 +178,55 @@ Then clone the current default database into that workspace database:
 ./script/replicate_workspace_database.sh --package app-change-control --workspace dev
 ```
 
-If the target database already exists and should be rebuilt from the current default state, add `--replace`. The script reads the selected cluster's Postgres endpoint, port, user, and password from `config`, uses `<package>/db-name` as the default source database, restores into `<package>/_instances/<workspace>/db-name` when present, and verifies relation and row counts before exiting.
+To clone from another instance instead of the default database, either pass the
+source directly:
 
-When you run `make tf-start app-change-control WORKSPACE=<workspace>`, the module's start hook asks whether to run this replication before Terraform apply. The default workspace skips this prompt.
+```bash
+./script/replicate_workspace_database.sh \
+  --package app-project-intake \
+  --workspace uat \
+  --source-db project_intake_portal_dev \
+  --replace
+```
+
+Or resolve it through that instance's config:
+
+```bash
+./script/replicate_workspace_database.sh \
+  --package app-project-intake \
+  --workspace uat \
+  --source-workspace dev \
+  --replace
+```
+
+You can make the Terraform start hook use a non-default source automatically by
+setting one of these optional files under the target instance config:
+
+```text
+config/_clusters/<cluster>/<package>/_instances/<workspace>/db-replica-source-db
+config/_clusters/<cluster>/<package>/_instances/<workspace>/db-replica-source-workspace
+```
+
+For example, `app-project-intake` UAT can clone from the `dev` instance by
+setting:
+
+```text
+config/_clusters/<cluster>/app-project-intake/_instances/uat/db-replica-source-workspace
+```
+
+to:
+
+```text
+dev
+```
+
+If the target database already exists and should be rebuilt from the selected source state, add `--replace`. The script reads the selected cluster's Postgres endpoint, port, user, and password from `config`, uses `<package>/db-name` as the default source database, restores into `<package>/_instances/<workspace>/db-name` when present, and verifies relation and row counts before exiting.
+
+When you run `make tf-start <package> WORKSPACE=<workspace>` for an app module
+that has the database replica start hook and a configured `db-name`, the module's
+start hook asks whether to run this replication before Terraform apply. The
+prompt shows the configured source. The default workspace, and app modules
+without database config, skip this prompt.
 
 ### Config files you'll need to supply on your own
 

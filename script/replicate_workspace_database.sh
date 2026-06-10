@@ -5,6 +5,7 @@ set -euo pipefail
 workspace="${TF_WORKSPACE:-dev}"
 package="app-change-control"
 source_db=""
+source_workspace=""
 target_db=""
 replace="0"
 backup_existing="1"
@@ -20,6 +21,9 @@ Options:
   --package NAME        Config package with db-name and _instances. Defaults to app-change-control.
   --workspace NAME      Instance workspace to prepare. Defaults to TF_WORKSPACE or dev.
   --source-db NAME      Source database. Defaults to the selected cluster package db-name.
+  --source-workspace NAME
+                        Source instance workspace. Resolves source database from that
+                        workspace's db-name config.
   --target-db NAME      Target database. Defaults to instance db-name, or <source>_<workspace>.
   --replace             Drop and recreate the target database if it already exists.
   --no-backup           With --replace, do not dump the existing target before dropping it.
@@ -44,6 +48,10 @@ while [ $# -gt 0 ]; do
             ;;
         --source-db)
             source_db="${2:?Missing value for --source-db}"
+            shift 2
+            ;;
+        --source-workspace)
+            source_workspace="${2:?Missing value for --source-workspace}"
             shift 2
             ;;
         --target-db)
@@ -88,6 +96,13 @@ if [[ ! "${package}" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]]; then
     exit 1
 fi
 
+for workspace_name in "${workspace}" "${source_workspace}"; do
+    if [ -n "${workspace_name}" ] && [[ ! "${workspace_name}" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]]; then
+        echo "Workspace names must use only letters, numbers, underscores, and hyphens, and cannot start with punctuation: ${workspace_name}" >&2
+        exit 1
+    fi
+done
+
 find_config_file() {
     local group="$1"
     local option="$2"
@@ -129,7 +144,7 @@ user="$(config_value aws-rds-postgres db-username)"
 password="$(config_value aws-rds-postgres db-password)"
 
 if [ -z "${source_db}" ]; then
-    source_db="$(config_value "${package}" db-name)"
+    source_db="$(config_value "${package}" db-name "${source_workspace}")"
 fi
 
 if [ -z "${target_db}" ]; then
