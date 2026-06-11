@@ -36,11 +36,15 @@ locals {
       { package = "cluster", option = "site-domain" },
       { package = "cluster", option = "domain-aws-id" },
 
+      { package = "aws-vpc", option = "private-subnet-ids" },
+      { package = "aws-vpc", option = "public-subnet-ids" },
+
       { package = "app-atlas-construct", option = "app-name" },
       { package = "app-atlas-construct", option = "kubernetes-namespace" },
       { package = "app-atlas-construct", option = "node-group-name" },
       { package = "app-atlas-construct", option = "alb-name" },
       { package = "app-atlas-construct", option = "site-hostname" },
+      { package = "app-atlas-construct", option = "private-deployment" },
       { package = "app-atlas-construct", option = "image-uri" },
       { package = "app-atlas-construct", option = "image-pull-policy" },
       { package = "app-atlas-construct", option = "container-port" },
@@ -81,9 +85,14 @@ locals {
 
   app_name                   = local.config["app-atlas-construct_app-name"]
   namespace_name             = local.config["app-atlas-construct_kubernetes-namespace"]
-  app_hostname               = local.config["app-atlas-construct_site-hostname"]
+  base_app_hostname          = local.config["app-atlas-construct_site-hostname"]
+  private_deployment         = tobool(local.config["app-atlas-construct_private-deployment"])
+  app_hostname               = local.private_deployment ? "${local.base_app_hostname}.private" : local.base_app_hostname
   app_fqdn                   = "${local.app_hostname}.${local.config["cluster_site-domain"]}"
   alb_name                   = local.config["app-atlas-construct_alb-name"]
+  alb_scheme                 = local.private_deployment ? "internal" : "internet-facing"
+  alb_exposure_name          = local.private_deployment ? "private" : "public"
+  alb_subnet_ids             = [for subnet_id in split(",", local.private_deployment ? local.config["aws-vpc_private-subnet-ids"] : local.config["aws-vpc_public-subnet-ids"]) : trimspace(subnet_id)]
   image_uri                  = local.config["app-atlas-construct_image-uri"]
   image_pull_policy          = local.config["app-atlas-construct_image-pull-policy"]
   container_port             = tonumber(local.config["app-atlas-construct_container-port"])
@@ -346,12 +355,13 @@ resource "kubernetes_ingress_v1" "app_public" {
   wait_for_load_balancer = true
 
   metadata {
-    name      = "${local.app_name}-public"
+    name      = "${local.app_name}-${local.alb_exposure_name}"
     namespace = kubernetes_namespace_v1.app.metadata[0].name
 
     annotations = {
       "kubernetes.io/ingress.class"                  = "alb"
-      "alb.ingress.kubernetes.io/scheme"             = "internet-facing"
+      "alb.ingress.kubernetes.io/scheme"             = local.alb_scheme
+      "alb.ingress.kubernetes.io/subnets"            = join(",", local.alb_subnet_ids)
       "alb.ingress.kubernetes.io/load-balancer-name" = local.alb_name
       "alb.ingress.kubernetes.io/listen-ports"       = "[{\"HTTP\":80},{\"HTTPS\":443}]"
       "alb.ingress.kubernetes.io/ssl-redirect"       = "443"
