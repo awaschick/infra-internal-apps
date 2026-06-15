@@ -50,6 +50,7 @@ locals {
       { package = "app-project-intake", option = "alb-name" },
       { package = "app-project-intake", option = "site-hostname" },
       { package = "app-project-intake", option = "private-deployment" },
+      { package = "app-project-intake", option = "private-hostname-segment-enabled" },
       { package = "app-project-intake", option = "image-uri" },
       { package = "app-project-intake", option = "image-pull-policy" },
       { package = "app-project-intake", option = "container-port" },
@@ -89,7 +90,8 @@ locals {
   namespace_name            = local.config["app-project-intake_kubernetes-namespace"]
   base_app_hostname         = local.config["app-project-intake_site-hostname"]
   private_deployment        = tobool(local.config["app-project-intake_private-deployment"])
-  app_hostname              = local.private_deployment ? "${local.base_app_hostname}.private" : local.base_app_hostname
+  private_hostname          = local.private_deployment && tobool(local.config["app-project-intake_private-hostname-segment-enabled"])
+  app_hostname              = local.private_hostname ? "${local.base_app_hostname}.private" : local.base_app_hostname
   app_fqdn                  = "${local.app_hostname}.${local.config["cluster_site-domain"]}"
   alb_name                  = local.config["app-project-intake_alb-name"]
   alb_scheme                = local.private_deployment ? "internal" : "internet-facing"

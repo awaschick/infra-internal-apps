@@ -50,6 +50,7 @@ locals {
       { package = "app-change-control", option = "alb-name" },
       { package = "app-change-control", option = "site-hostname" },
       { package = "app-change-control", option = "private-deployment" },
+      { package = "app-change-control", option = "private-hostname-segment-enabled" },
       { package = "app-change-control", option = "image-uri" },
       { package = "app-change-control", option = "image-pull-policy" },
       { package = "app-change-control", option = "container-port" },
@@ -72,7 +73,8 @@ locals {
   namespace_name      = local.config["app-change-control_kubernetes-namespace"]
   base_app_hostname   = local.config["app-change-control_site-hostname"]
   private_deployment  = tobool(local.config["app-change-control_private-deployment"])
-  app_hostname        = local.private_deployment ? "${local.base_app_hostname}.private" : local.base_app_hostname
+  private_hostname    = local.private_deployment && tobool(local.config["app-change-control_private-hostname-segment-enabled"])
+  app_hostname        = local.private_hostname ? "${local.base_app_hostname}.private" : local.base_app_hostname
   app_fqdn            = "${local.app_hostname}.${local.config["cluster_site-domain"]}"
   alb_name            = local.config["app-change-control_alb-name"]
   alb_scheme          = local.private_deployment ? "internal" : "internet-facing"

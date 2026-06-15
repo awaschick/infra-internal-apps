@@ -45,6 +45,7 @@ locals {
       { package = "app-atlas-construct", option = "alb-name" },
       { package = "app-atlas-construct", option = "site-hostname" },
       { package = "app-atlas-construct", option = "private-deployment" },
+      { package = "app-atlas-construct", option = "private-hostname-segment-enabled" },
       { package = "app-atlas-construct", option = "image-uri" },
       { package = "app-atlas-construct", option = "image-pull-policy" },
       { package = "app-atlas-construct", option = "container-port" },
@@ -87,7 +88,8 @@ locals {
   namespace_name             = local.config["app-atlas-construct_kubernetes-namespace"]
   base_app_hostname          = local.config["app-atlas-construct_site-hostname"]
   private_deployment         = tobool(local.config["app-atlas-construct_private-deployment"])
-  app_hostname               = local.private_deployment ? "${local.base_app_hostname}.private" : local.base_app_hostname
+  private_hostname           = local.private_deployment && tobool(local.config["app-atlas-construct_private-hostname-segment-enabled"])
+  app_hostname               = local.private_hostname ? "${local.base_app_hostname}.private" : local.base_app_hostname
   app_fqdn                   = "${local.app_hostname}.${local.config["cluster_site-domain"]}"
   alb_name                   = local.config["app-atlas-construct_alb-name"]
   alb_scheme                 = local.private_deployment ? "internal" : "internet-facing"
