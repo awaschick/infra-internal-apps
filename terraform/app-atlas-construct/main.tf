@@ -33,6 +33,11 @@ locals {
       { package = "aws", option = "aws-access-key" },
       { package = "aws", option = "aws-secret" },
 
+      { package = "aws-rds-postgres", option = "endpoint" },
+      { package = "aws-rds-postgres", option = "port" },
+      { package = "aws-rds-postgres", option = "db-username" },
+      { package = "aws-rds-postgres", option = "db-password" },
+
       { package = "cluster", option = "site-domain" },
       { package = "cluster", option = "domain-aws-id" },
 
@@ -76,6 +81,13 @@ locals {
       { package = "app-atlas-construct", option = "slack-bot-token" },
       { package = "app-atlas-construct", option = "slack-app-token" },
       { package = "app-atlas-construct", option = "morpheus-channel-id" },
+      { package = "app-atlas-construct", option = "db-datawarehouse-type" },
+      { package = "app-atlas-construct", option = "db-datawarehouse-host" },
+      { package = "app-atlas-construct", option = "db-datawarehouse-port" },
+      { package = "app-atlas-construct", option = "db-datawarehouse-name" },
+      { package = "app-atlas-construct", option = "db-datawarehouse-user" },
+      { package = "app-atlas-construct", option = "db-datawarehouse-password" },
+      { package = "app-atlas-construct", option = "db-construct-name" },
     ]
     cluster_selection = local.cluster
     cluster_path      = local.cluster_path
@@ -135,19 +147,33 @@ locals {
     } : key => value if trimspace(value) != ""
   }
   app_env = merge({
-    ALLOWED_ORIGIN         = local.allowed_origin
-    API_TARGET             = "http://127.0.0.1:${local.server_port}"
-    CLIENT_PORT            = tostring(local.container_port)
-    CLIENTS_JSON_PATH      = local.clients_json_path
-    CONSTRUCT_DATA_DIR     = local.construct_data_dir
-    CONSTRUCT_URL          = local.public_app_base_url
-    CORE_PREVIEW_URLS_PATH = local.core_preview_urls_path
-    LOG_DIR                = local.log_dir
-    LOG_LEVEL              = local.config["app-atlas-construct_log-level"]
-    MORPHEUS_DATA_DIR      = local.morpheus_data_dir
-    NODE_ENV               = "production"
-    PORT                   = tostring(local.server_port)
-    PREVIEW_ALLOWED_HOSTS  = local.app_fqdn
+    ALLOWED_ORIGIN                       = local.allowed_origin
+    API_TARGET                           = "http://127.0.0.1:${local.server_port}"
+    CLIENT_PORT                          = tostring(local.container_port)
+    CLIENTS_JSON_PATH                    = local.clients_json_path
+    CONSTRUCT_DATA_DIR                   = local.construct_data_dir
+    CONSTRUCT_URL                        = local.public_app_base_url
+    CORE_PREVIEW_URLS_PATH               = local.core_preview_urls_path
+    DB_CONSTRUCT_HOST                    = local.config["aws-rds-postgres_endpoint"]
+    DB_CONSTRUCT_NAME                    = local.config["app-atlas-construct_db-construct-name"]
+    DB_CONSTRUCT_PASSWORD                = local.config["aws-rds-postgres_db-password"]
+    DB_CONSTRUCT_PORT                    = local.config["aws-rds-postgres_port"]
+    DB_CONSTRUCT_SSL                     = "true"
+    DB_CONSTRUCT_SSL_REJECT_UNAUTHORIZED = "false"
+    DB_CONSTRUCT_TYPE                    = "postgres"
+    DB_CONSTRUCT_USER                    = local.config["aws-rds-postgres_db-username"]
+    DB_DATAWAREHOUSE_HOST                = local.config["app-atlas-construct_db-datawarehouse-host"]
+    DB_DATAWAREHOUSE_NAME                = local.config["app-atlas-construct_db-datawarehouse-name"]
+    DB_DATAWAREHOUSE_PASSWORD            = local.config["app-atlas-construct_db-datawarehouse-password"]
+    DB_DATAWAREHOUSE_PORT                = local.config["app-atlas-construct_db-datawarehouse-port"]
+    DB_DATAWAREHOUSE_TYPE                = local.config["app-atlas-construct_db-datawarehouse-type"]
+    DB_DATAWAREHOUSE_USER                = local.config["app-atlas-construct_db-datawarehouse-user"]
+    LOG_DIR                              = local.log_dir
+    LOG_LEVEL                            = local.config["app-atlas-construct_log-level"]
+    MORPHEUS_DATA_DIR                    = local.morpheus_data_dir
+    NODE_ENV                             = "production"
+    PORT                                 = tostring(local.server_port)
+    PREVIEW_ALLOWED_HOSTS                = local.app_fqdn
   }, local.optional_app_env)
   app_env_checksum = sha256(jsonencode(local.app_env))
 }
