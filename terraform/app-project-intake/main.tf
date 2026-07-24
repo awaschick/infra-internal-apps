@@ -67,6 +67,7 @@ locals {
       { package = "app-project-intake", option = "slack-bot-token" },
       { package = "app-project-intake", option = "slack-app-token" },
       { package = "app-project-intake", option = "slack-signing-secret" },
+      { package = "app-project-intake", option = "slack-bot-enabled" },
       { package = "app-project-intake", option = "entra-tenant-id" },
       { package = "app-project-intake", option = "entra-client-id" },
       { package = "app-project-intake", option = "entra-client-secret" },
@@ -115,6 +116,7 @@ locals {
     for key, value in {
       ANTHROPIC_API_KEY               = local.config["app-project-intake_anthropic-api-key"]
       OPENAI_API_KEY                  = local.config["app-project-intake_openai-api-key"]
+      SLACK_BOT_ENABLED               = local.config["app-project-intake_slack-bot-enabled"]
       SLACK_BOT_TOKEN                 = local.config["app-project-intake_slack-bot-token"]
       SLACK_APP_TOKEN                 = local.config["app-project-intake_slack-app-token"]
       SLACK_SIGNING_SECRET            = local.config["app-project-intake_slack-signing-secret"]
