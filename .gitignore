@@ -46,3 +46,17 @@ terraform.rc
 config/_clusters/*/efs-workspace-init-datamart/git-ssh-private-key
 config/_clusters/*/efs-workspace-init-datamart/git-ssh-public-key
 config/_clusters/*/efs-workspace-init-datamart/git-ssh-known-hosts
+
+# Ask Atlas runtime secrets are supplied as cluster/instance overrides.
+config/_clusters/*/app-ask-atlas/anthropic-api-key
+config/_clusters/*/app-ask-atlas/auth-secret
+config/_clusters/*/app-ask-atlas/_instances/*/anthropic-api-key
+config/_clusters/*/app-ask-atlas/_instances/*/auth-secret
+config/_clusters/*/app-ask-atlas/dropbox-app-key
+config/_clusters/*/app-ask-atlas/dropbox-app-secret
+config/_clusters/*/app-ask-atlas/dropbox-refresh-token
+config/_clusters/*/app-ask-atlas/dropbox-root-namespace-id
+config/_clusters/*/app-ask-atlas/_instances/*/dropbox-app-key
+config/_clusters/*/app-ask-atlas/_instances/*/dropbox-app-secret
+config/_clusters/*/app-ask-atlas/_instances/*/dropbox-refresh-token
+config/_clusters/*/app-ask-atlas/_instances/*/dropbox-root-namespace-id

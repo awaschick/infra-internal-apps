@@ -151,6 +151,21 @@ Subject app Terraform plans read Microsoft Entra settings from package-scoped `e
 - `config/app-change-control/entra-tenant-id`
 - `config/app-project-intake/entra-client-id`
 - `config/app-project-intake/entra-tenant-id`
+- `config/app-ask-atlas/entra-client-id`
+- `config/app-ask-atlas/entra-tenant-id`
+
+Ask Atlas additionally reads `entra-admin-group-id` to authorize deck import,
+replacement, and deletion. Its browser-facing Entra values are compiled into
+the application image, so the image build values must match the selected
+Terraform deployment configuration.
+
+Ask Atlas uses the default Terraform workspace for Production and the `dev`,
+`test`, and `uat` workspaces for matching Dropbox import directories and
+isolated Kubernetes namespaces/hostnames. Its Dropbox materializer reads
+credentials from `dropbox-app-key`, `dropbox-app-secret`, and
+`dropbox-refresh-token`; optional `dropbox-root-namespace-id` selects the
+Dropbox Business team root explicitly. Store these as cluster or instance
+overrides covered by `.gitignore`, never in the tracked package defaults.
 
 You can override those per cluster with:
 
