@@ -60,3 +60,8 @@ config/_clusters/*/app-ask-atlas/_instances/*/dropbox-app-key
 config/_clusters/*/app-ask-atlas/_instances/*/dropbox-app-secret
 config/_clusters/*/app-ask-atlas/_instances/*/dropbox-refresh-token
 config/_clusters/*/app-ask-atlas/_instances/*/dropbox-root-namespace-id
+
+# Atlas Time runtime credentials and saved plans
+config/_clusters/*/app-atlas-time/anthropic-api-key
+config/_clusters/*/app-atlas-time/_instances/*/anthropic-api-key
+*.tfplan

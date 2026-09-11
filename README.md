@@ -276,3 +276,10 @@ make tf-start efs-workspace-init-datamart
 At runtime, the key is copied to `/root/.ssh/id_git` and `GIT_SSH_COMMAND` is set automatically, so cloning `git@github.com:atlas-digital-group/datamart-dagster.git` works with that key.
 
 These cluster-level `git-ssh-*` files are ignored by git via `.gitignore`, so you can rotate or replace keys without committing credentials or rebuilding the workload image.
+
+### Atlas Time initial dev release
+
+`terraform/app-atlas-time` follows the existing internal-app workspace/config
+conventions. Its initial release is restricted to `WORKSPACE=dev`, namespace
+`atlas-time-dev`, database `atlas_time_dev`, and private ALB exposure. See
+[the module operations notes](terraform/app-atlas-time/README.md).
