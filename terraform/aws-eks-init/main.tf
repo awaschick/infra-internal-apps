@@ -156,10 +156,21 @@ module "eks" {
     platform = {
       instance_types = [local.config.aws-eks-init_group-platform-instance-types]
       desired_size   = local.config.aws-eks-init_group-platform-instance-count
-      disk_size      = tonumber(trimspace(local.config.aws-eks-init_group-platform-disk-size-gb))
-      subnet_ids     = local.subnet_ids
-      min_size       = local.config.aws-eks-init_group-platform-instance-count
-      max_size       = max(2, local.config.aws-eks-init_group-platform-instance-count + 1)
+      # This module uses a custom launch template, which ignores disk_size.
+      # Set the root volume size in the launch template for replacement nodes.
+      block_device_mappings = {
+        root = {
+          device_name = "/dev/xvda"
+          ebs = {
+            volume_size           = tonumber(trimspace(local.config.aws-eks-init_group-platform-disk-size-gb))
+            volume_type           = "gp3"
+            delete_on_termination = true
+          }
+        }
+      }
+      subnet_ids = local.subnet_ids
+      min_size   = local.config.aws-eks-init_group-platform-instance-count
+      max_size   = max(2, local.config.aws-eks-init_group-platform-instance-count + 1)
       update_config = {
         max_unavailable = 1
       }
