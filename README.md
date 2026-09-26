@@ -277,9 +277,11 @@ At runtime, the key is copied to `/root/.ssh/id_git` and `GIT_SSH_COMMAND` is se
 
 These cluster-level `git-ssh-*` files are ignored by git via `.gitignore`, so you can rotate or replace keys without committing credentials or rebuilding the workload image.
 
-### Atlas Time initial dev release
+### Atlas Time dev and UAT deployments
 
 `terraform/app-atlas-time` follows the existing internal-app workspace/config
-conventions. Its initial release is restricted to `WORKSPACE=dev`, namespace
-`atlas-time-dev`, database `atlas_time_dev`, and private ALB exposure. See
+conventions. It supports private `dev` and `uat` workspaces with matching
+`atlas-time-<workspace>` namespaces and `atlas_time_<workspace>` databases.
+`make tf-start app-atlas-time WORKSPACE=uat` offers to copy the `dev` database
+into UAT before applying, backing up an existing UAT database before replacement. See
 [the module operations notes](terraform/app-atlas-time/README.md).
