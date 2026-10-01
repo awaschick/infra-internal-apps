@@ -147,8 +147,8 @@ resource "kubernetes_secret_v1" "app_env" {
 resource "kubernetes_deployment_v1" "app" {
   lifecycle {
     precondition {
-      condition     = contains(["dev", "uat"], terraform.workspace) && local.database_name == "atlas_time_${terraform.workspace}" && local.namespace_name == "atlas-time-${terraform.workspace}" && local.private_deployment
-      error_message = "Atlas Time requires a private dev or uat deployment with the matching atlas-time-<workspace> namespace and atlas_time_<workspace> database."
+      condition     = contains(["default", "dev", "uat"], terraform.workspace) && local.database_name == (terraform.workspace == "default" ? "atlas_time" : "atlas_time_${terraform.workspace}") && local.namespace_name == (terraform.workspace == "default" ? "atlas-time" : "atlas-time-${terraform.workspace}") && local.private_deployment
+      error_message = "Atlas Time requires a private deployment: default (production) uses namespace atlas-time and database atlas_time; dev/uat use the matching atlas-time-<workspace> namespace and atlas_time_<workspace> database."
     }
     precondition {
       condition     = alltrue([for id in [local.entra_client_id, local.entra_tenant_id] : can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", id)) && id != "00000000-0000-0000-0000-000000000000"])
