@@ -57,6 +57,11 @@ locals {
       { package = "app-atlas-construct", option = "server-port" },
       { package = "app-atlas-construct", option = "service-port" },
       { package = "app-atlas-construct", option = "replicas" },
+      { package = "app-atlas-construct", option = "core-shell-enabled" },
+      { package = "app-atlas-construct", option = "core-shell-port" },
+      { package = "app-atlas-construct", option = "core-shell-site-hostname" },
+      { package = "app-atlas-construct", option = "core-shell-env" },
+      { package = "app-atlas-construct", option = "core-shell-reference-client" },
       { package = "app-atlas-construct", option = "storage-class" },
       { package = "app-atlas-construct", option = "construct-data-volume-size" },
       { package = "app-atlas-construct", option = "log-level" },
@@ -124,6 +129,22 @@ locals {
   morpheus_data_dir          = trimspace(local.config["app-atlas-construct_morpheus-data-dir"]) != "" ? local.config["app-atlas-construct_morpheus-data-dir"] : "${local.construct_data_dir}/morpheus"
   vite_entra_client_id       = trimspace(local.config["app-atlas-construct_vite-entra-client-id"]) != "" ? local.config["app-atlas-construct_vite-entra-client-id"] : local.config["app-atlas-construct_entra-client-id"]
   vite_entra_tenant_id       = trimspace(local.config["app-atlas-construct_vite-entra-tenant-id"]) != "" ? local.config["app-atlas-construct_vite-entra-tenant-id"] : local.config["app-atlas-construct_entra-tenant-id"]
+  # Sessions are process-local and the catalog file has one writer. Never scale this deployment horizontally.
+  core_shell_enabled = tobool(local.config["app-atlas-construct_core-shell-enabled"])
+  core_shell_port    = tonumber(local.config["app-atlas-construct_core-shell-port"])
+  core_shell_fqdn    = trimspace(local.config["app-atlas-construct_core-shell-site-hostname"]) != "" ? "${local.config["app-atlas-construct_core-shell-site-hostname"]}.${local.config["cluster_site-domain"]}" : "preview.${local.app_fqdn}"
+  core_shell_env = local.core_shell_enabled ? {
+    CORE_SHELL_PORT             = tostring(local.core_shell_port)
+    CORE_SHELL_DIST             = "/app/core-ui-dist"
+    CORE_SHELL_HOST             = "0.0.0.0"
+    CORE_SHELL_PUBLIC_ORIGIN    = "https://${local.core_shell_fqdn}"
+    CORE_SHELL_EDITOR_ORIGIN    = local.public_app_base_url
+    CORE_SHELL_ENV              = local.config["app-atlas-construct_core-shell-env"]
+    CORE_SHELL_CATALOG_MODE     = "local"
+    CORE_SHELL_REFERENCE_CLIENT = local.config["app-atlas-construct_core-shell-reference-client"]
+  } : {}
+  # Preserve compatibility with the currently deployed image until the shell is enabled.
+  health_command = local.core_shell_enabled ? ["node", "/app/healthcheck.cjs"] : ["sh", "-c", "wget -q -O /dev/null http://127.0.0.1:${local.container_port}/ && node -e \"const net=require('net');const s=net.createConnection(${local.server_port},'127.0.0.1');s.setTimeout(2000);s.on('connect',()=>process.exit(0));s.on('timeout',()=>process.exit(1));s.on('error',()=>process.exit(1));\""]
   app_labels = {
     app = "${local.app_name}-web"
   }
@@ -174,7 +195,7 @@ locals {
     NODE_ENV                             = "production"
     PORT                                 = tostring(local.server_port)
     PREVIEW_ALLOWED_HOSTS                = local.app_fqdn
-  }, local.optional_app_env)
+  }, local.optional_app_env, local.core_shell_env)
   app_env_checksum = sha256(jsonencode(local.app_env))
 }
 
@@ -193,6 +214,14 @@ provider "aws" {
 }
 
 resource "kubernetes_namespace_v1" "app" {
+  lifecycle {
+    # Rancher owns these fields and restores them after removal.
+    ignore_changes = [
+      metadata[0].annotations["cattle.io/status"],
+      metadata[0].annotations["lifecycle.cattle.io/create.namespace-auth"],
+    ]
+  }
+
   metadata {
     name = local.namespace_name
     labels = {
@@ -233,6 +262,21 @@ resource "kubernetes_persistent_volume_claim_v1" "construct_data" {
 }
 
 resource "kubernetes_deployment_v1" "app" {
+  lifecycle {
+    precondition {
+      condition     = local.replicas == 1
+      error_message = "Construct requires exactly one replica: clients.json is a single-writer store and preview sessions are process-local."
+    }
+    precondition {
+      condition     = !local.core_shell_enabled || contains(["dev", "tst", "stg", "uat"], local.config["app-atlas-construct_core-shell-env"])
+      error_message = "CORE preview must pair with dev, tst, stg, or uat; never production."
+    }
+    precondition {
+      condition     = !local.core_shell_enabled || (local.core_shell_fqdn != local.app_fqdn && !contains([local.container_port, local.server_port], local.core_shell_port))
+      error_message = "The preview shell needs a distinct hostname and listener port."
+    }
+  }
+
   metadata {
     name      = "${local.app_name}-web"
     namespace = kubernetes_namespace_v1.app.metadata[0].name
@@ -241,6 +285,9 @@ resource "kubernetes_deployment_v1" "app" {
 
   spec {
     replicas = local.replicas
+    strategy {
+      type = "Recreate"
+    }
 
     selector {
       match_labels = local.app_labels
@@ -279,6 +326,14 @@ resource "kubernetes_deployment_v1" "app" {
             container_port = local.server_port
           }
 
+          dynamic "port" {
+            for_each = local.core_shell_enabled ? [local.core_shell_port] : []
+            content {
+              name           = "core-shell"
+              container_port = port.value
+            }
+          }
+
           env_from {
             secret_ref {
               name = kubernetes_secret_v1.app_env.metadata[0].name
@@ -290,28 +345,22 @@ resource "kubernetes_deployment_v1" "app" {
             mount_path = local.construct_data_dir
           }
 
-          readiness_probe {
-            exec {
-              command = [
-                "sh",
-                "-c",
-                "wget -q -O /dev/null http://127.0.0.1:${local.container_port}/ && node -e \"const net=require('net');const s=net.createConnection(${local.server_port},'127.0.0.1');s.setTimeout(2000);s.on('connect',()=>process.exit(0));s.on('timeout',()=>process.exit(1));s.on('error',()=>process.exit(1));\"",
-              ]
-            }
-            initial_delay_seconds = 10
-            period_seconds        = 10
+          startup_probe {
+            exec { command = local.health_command }
+            period_seconds    = 5
+            timeout_seconds   = 10
+            failure_threshold = 60
           }
-
+          readiness_probe {
+            exec { command = local.health_command }
+            period_seconds  = 10
+            timeout_seconds = 10
+          }
           liveness_probe {
-            exec {
-              command = [
-                "sh",
-                "-c",
-                "wget -q -O /dev/null http://127.0.0.1:${local.container_port}/ && node -e \"const net=require('net');const s=net.createConnection(${local.server_port},'127.0.0.1');s.setTimeout(2000);s.on('connect',()=>process.exit(0));s.on('timeout',()=>process.exit(1));s.on('error',()=>process.exit(1));\"",
-              ]
-            }
-            initial_delay_seconds = 30
-            period_seconds        = 20
+            exec { command = local.health_command }
+            period_seconds    = 20
+            timeout_seconds   = 10
+            failure_threshold = 3
           }
         }
 
@@ -342,13 +391,23 @@ resource "kubernetes_service_v1" "app" {
       target_port = local.container_port
     }
 
+    dynamic "port" {
+      for_each = local.core_shell_enabled ? [local.core_shell_port] : []
+      content {
+        name        = "core-shell"
+        port        = port.value
+        target_port = port.value
+      }
+    }
+
     type = "ClusterIP"
   }
 }
 
 resource "aws_acm_certificate" "app" {
-  domain_name       = local.app_fqdn
-  validation_method = "DNS"
+  domain_name               = local.app_fqdn
+  subject_alternative_names = local.core_shell_enabled ? [local.core_shell_fqdn] : []
+  validation_method         = "DNS"
 
   lifecycle {
     create_before_destroy = true
@@ -356,19 +415,13 @@ resource "aws_acm_certificate" "app" {
 }
 
 resource "aws_route53_record" "app_validation" {
-  for_each = {
-    for dvo in aws_acm_certificate.app.domain_validation_options :
-    dvo.domain_name => {
-      name  = dvo.resource_record_name
-      type  = dvo.resource_record_type
-      value = dvo.resource_record_value
-    }
-  }
+  # Keep instance keys known during certificate replacement (including the new SAN).
+  for_each = toset(concat([local.app_fqdn], local.core_shell_enabled ? [local.core_shell_fqdn] : []))
 
   zone_id = local.config["cluster_domain-aws-id"]
-  name    = each.value.name
-  type    = each.value.type
-  records = [each.value.value]
+  name    = one([for dvo in aws_acm_certificate.app.domain_validation_options : dvo.resource_record_name if dvo.domain_name == each.key])
+  type    = one([for dvo in aws_acm_certificate.app.domain_validation_options : dvo.resource_record_type if dvo.domain_name == each.key])
+  records = [one([for dvo in aws_acm_certificate.app.domain_validation_options : dvo.resource_record_value if dvo.domain_name == each.key])]
   ttl     = 60
 }
 
@@ -387,16 +440,17 @@ resource "kubernetes_ingress_v1" "app_public" {
     namespace = kubernetes_namespace_v1.app.metadata[0].name
 
     annotations = {
-      "kubernetes.io/ingress.class"                  = "alb"
-      "alb.ingress.kubernetes.io/scheme"             = local.alb_scheme
-      "alb.ingress.kubernetes.io/subnets"            = join(",", local.alb_subnet_ids)
-      "alb.ingress.kubernetes.io/load-balancer-name" = local.alb_name
-      "alb.ingress.kubernetes.io/listen-ports"       = "[{\"HTTP\":80},{\"HTTPS\":443}]"
-      "alb.ingress.kubernetes.io/ssl-redirect"       = "443"
-      "alb.ingress.kubernetes.io/certificate-arn"    = aws_acm_certificate.app.arn
-      "alb.ingress.kubernetes.io/target-type"        = "ip"
-      "alb.ingress.kubernetes.io/healthcheck-path"   = "/"
-      "alb.ingress.kubernetes.io/success-codes"      = "200-399"
+      "kubernetes.io/ingress.class"                        = "alb"
+      "alb.ingress.kubernetes.io/scheme"                   = local.alb_scheme
+      "alb.ingress.kubernetes.io/subnets"                  = join(",", local.alb_subnet_ids)
+      "alb.ingress.kubernetes.io/load-balancer-name"       = local.alb_name
+      "alb.ingress.kubernetes.io/listen-ports"             = "[{\"HTTP\":80},{\"HTTPS\":443}]"
+      "alb.ingress.kubernetes.io/ssl-redirect"             = "443"
+      "alb.ingress.kubernetes.io/certificate-arn"          = aws_acm_certificate.app.arn
+      "alb.ingress.kubernetes.io/target-type"              = "ip"
+      "alb.ingress.kubernetes.io/healthcheck-path"         = "/"
+      "alb.ingress.kubernetes.io/success-codes"            = "200-399"
+      "alb.ingress.kubernetes.io/load-balancer-attributes" = "idle_timeout.timeout_seconds=900"
     }
   }
 
@@ -414,6 +468,24 @@ resource "kubernetes_ingress_v1" "app_public" {
               name = kubernetes_service_v1.app.metadata[0].name
               port {
                 number = local.service_port
+              }
+            }
+          }
+        }
+      }
+    }
+    dynamic "rule" {
+      for_each = local.core_shell_enabled ? [local.core_shell_fqdn] : []
+      content {
+        host = rule.value
+        http {
+          path {
+            path      = "/"
+            path_type = "Prefix"
+            backend {
+              service {
+                name = kubernetes_service_v1.app.metadata[0].name
+                port { number = local.core_shell_port }
               }
             }
           }
@@ -444,4 +516,17 @@ output "app_atlas_construct_url" {
 
 output "app_atlas_construct_instance" {
   value = local.deployment_instance
+}
+
+resource "aws_route53_record" "core_shell_cname" {
+  count   = local.core_shell_enabled ? 1 : 0
+  zone_id = local.config["cluster_domain-aws-id"]
+  name    = local.core_shell_fqdn
+  type    = "CNAME"
+  ttl     = 60
+  records = [kubernetes_ingress_v1.app_public.status[0].load_balancer[0].ingress[0].hostname]
+}
+
+output "app_atlas_construct_preview_url" {
+  value = local.core_shell_enabled ? "https://${local.core_shell_fqdn}" : null
 }
