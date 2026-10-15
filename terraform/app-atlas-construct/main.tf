@@ -58,6 +58,13 @@ locals {
       { package = "app-atlas-construct", option = "service-port" },
       { package = "app-atlas-construct", option = "replicas" },
       { package = "app-atlas-construct", option = "core-shell-enabled" },
+      { package = "app-atlas-construct", option = "core-shell-mirror" },
+      { package = "app-atlas-construct", option = "css-design-render" },
+      { package = "app-atlas-construct", option = "morpheus-slack-engine" },
+      { package = "app-atlas-construct", option = "cpu-request" },
+      { package = "app-atlas-construct", option = "memory-request" },
+      { package = "app-atlas-construct", option = "cpu-limit" },
+      { package = "app-atlas-construct", option = "memory-limit" },
       { package = "app-atlas-construct", option = "core-shell-port" },
       { package = "app-atlas-construct", option = "core-shell-site-hostname" },
       { package = "app-atlas-construct", option = "core-shell-env" },
@@ -141,6 +148,7 @@ locals {
     CORE_SHELL_EDITOR_ORIGIN    = local.public_app_base_url
     CORE_SHELL_ENV              = local.config["app-atlas-construct_core-shell-env"]
     CORE_SHELL_CATALOG_MODE     = "local"
+    CORE_SHELL_MIRROR           = local.config["app-atlas-construct_core-shell-mirror"]
     CORE_SHELL_REFERENCE_CLIENT = local.config["app-atlas-construct_core-shell-reference-client"]
   } : {}
   # Preserve compatibility with the currently deployed image until the shell is enabled.
@@ -192,6 +200,9 @@ locals {
     LOG_DIR                              = local.log_dir
     LOG_LEVEL                            = local.config["app-atlas-construct_log-level"]
     MORPHEUS_DATA_DIR                    = local.morpheus_data_dir
+    CSS_DESIGN_CHROMIUM_PATH             = "/usr/bin/chromium"
+    CSS_DESIGN_RENDER                    = local.config["app-atlas-construct_css-design-render"]
+    MORPHEUS_SLACK_ENGINE                = local.config["app-atlas-construct_morpheus-slack-engine"]
     NODE_ENV                             = "production"
     PORT                                 = tostring(local.server_port)
     PREVIEW_ALLOWED_HOSTS                = local.app_fqdn
@@ -263,6 +274,8 @@ resource "kubernetes_persistent_volume_claim_v1" "construct_data" {
 
 resource "kubernetes_deployment_v1" "app" {
   lifecycle {
+    # Rancher maintains discovered public endpoints.
+    ignore_changes = [metadata[0].annotations["field.cattle.io/publicEndpoints"]]
     precondition {
       condition     = local.replicas == 1
       error_message = "Construct requires exactly one replica: clients.json is a single-writer store and preview sessions are process-local."
@@ -317,6 +330,19 @@ resource "kubernetes_deployment_v1" "app" {
           name              = local.app_name
           image             = local.image_uri
           image_pull_policy = local.image_pull_policy
+
+          # Node's image heap cap is 4 GiB; leave headroom for Chromium and the
+          # Agent SDK child process. Tune per instance after observing load.
+          resources {
+            requests = {
+              cpu    = local.config["app-atlas-construct_cpu-request"]
+              memory = local.config["app-atlas-construct_memory-request"]
+            }
+            limits = {
+              cpu    = local.config["app-atlas-construct_cpu-limit"]
+              memory = local.config["app-atlas-construct_memory-limit"]
+            }
+          }
 
           port {
             container_port = local.container_port
@@ -433,6 +459,9 @@ resource "aws_acm_certificate_validation" "app" {
 }
 
 resource "kubernetes_ingress_v1" "app_public" {
+  lifecycle {
+    ignore_changes = [metadata[0].annotations["field.cattle.io/publicEndpoints"]]
+  }
   wait_for_load_balancer = true
 
   metadata {

@@ -24,6 +24,14 @@ values = {
     'core-shell-site-hostname': '', 'construct-data-dir': '/app/backend/data',
     'clients-json-path': '', 'core-preview-urls-path': '', 'morpheus-data-dir': '', 'log-dir': '',
     'allowed-origin': '',
+    'core-shell-mirror': '1',
+    'css-design-render': 'on',
+    'morpheus-slack-engine': 'agent',
+    'cpu-request': '500m',
+    'memory-request': '1Gi',
+    'cpu-limit': '2',
+    'memory-limit': '6Gi',
+
 }
 mock = '''
 mock_provider "aws" {
@@ -81,10 +89,20 @@ for scenario in ['disabled', 'enabled', 'replicas', 'production', 'same-host', '
     error_message = "Wrong preview DNS/TLS configuration"
   }}
 '''
+            assertions += '''
+  assert {
+    condition = kubernetes_secret_v1.app_env.data["CSS_DESIGN_CHROMIUM_PATH"] == "/usr/bin/chromium" && kubernetes_secret_v1.app_env.data["CSS_DESIGN_RENDER"] == "on" && kubernetes_secret_v1.app_env.data["MORPHEUS_SLACK_ENGINE"] == "agent"
+    error_message = "Release renderer/agent configuration is missing"
+  }
+  assert {
+    condition = kubernetes_deployment_v1.app.spec[0].template[0].spec[0].container[0].resources[0].limits["memory"] == "6Gi" && kubernetes_deployment_v1.app.spec[0].template[0].spec[0].container[0].resources[0].requests["memory"] == "1Gi"
+    error_message = "Browser and agent resource budget is missing"
+  }
+'''
             if enabled:
                 assertions += '''
   assert {
-    condition = kubernetes_secret_v1.app_env.data["CORE_SHELL_PUBLIC_ORIGIN"] == "https://preview.construct.example.com" && kubernetes_secret_v1.app_env.data["CORE_SHELL_EDITOR_ORIGIN"] == "https://construct.example.com"
+    condition = kubernetes_secret_v1.app_env.data["CORE_SHELL_MIRROR"] == "1" && kubernetes_secret_v1.app_env.data["CORE_SHELL_PUBLIC_ORIGIN"] == "https://preview.construct.example.com" && kubernetes_secret_v1.app_env.data["CORE_SHELL_EDITOR_ORIGIN"] == "https://construct.example.com"
     error_message = "Preview/editor origins differ from ingress"
   }
   assert {

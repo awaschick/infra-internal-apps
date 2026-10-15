@@ -114,3 +114,73 @@ Infrastructure revision inspected: `13768fa92f53cb4f0eb12c29850cde61fb11984c`, p
 the existing uncommitted preparation and this chat's changes. Construct checkout
 revision inspected: `79569662e7512088a20d4d7e1a4ffc0f67189704`; the release image
 identity above is verified independently of the current checkout revision.
+
+## October 15, 2026 — container support
+
+The companion image now supplies Chromium/Noto fonts and Agent SDK documentation.
+New global defaults follow the existing cluster/workspace override precedence:
+
+| Option | Default | Purpose |
+| --- | --- | --- |
+| core-shell-mirror | 1 | Mirror the paired nonproduction CORE UI; 0 opts out |
+| css-design-render | on | Enable screenshot/style verification and image generation |
+| morpheus-slack-engine | agent | Select agent or classic for Slack |
+| cpu-request | 500m | Scheduler reservation |
+| memory-request | 1Gi | Scheduler reservation |
+| cpu-limit | 2 | CPU cap |
+| memory-limit | 6Gi | Node 4 GiB heap plus Chromium and Agent subprocess headroom |
+
+`CSS_DESIGN_CHROMIUM_PATH` is `/usr/bin/chromium`, matching the image. The existing
+persistent volume covers mirror files, undo journals, custom styles, and Morpheus
+agent sessions/docs. Resource defaults are starting budgets, not a load-test result;
+watch memory and CPU after rollout. No PVC or database migration is needed here.
+Rancher-owned `field.cattle.io/publicEndpoints` annotations are preserved on the
+Deployment and Ingress, as namespace controller annotations already were.
+
+Production/default already has preview enabled and pairs with `tst`; the existing
+local image URI changes select `2026101501` for production, dev and UAT. These edits
+were preserved. This preparation does not push an image or apply Terraform.
+
+Validation on October 15: Terraform validate and all six mocked-provider scenarios
+passed, including new renderer/agent/resource assertions. A read-only production
+plan showed **0 additions, 2 in-place updates, 0 destructions** (Deployment and
+application environment Secret). No ingress, certificate, namespace or PVC change.
+The plan log is local under `db/backups/atlas-construct-2026101501-preflight/production-plan.log`
+and is not committed because plans may contain deployment configuration.
+Repeat the production plan immediately before deployment. Publish only the tested
+image, take consistent full-volume/database backups, and verify authenticated
+preview, generated images and Morpheus workflows after rollout.
+
+Companion image validation: `atlas-construct:2026101501-validation` (linux/amd64)
+built successfully with production Entra build inputs. Application startup, all
+three listeners, Agent SDK import/native executable, packaged agent docs and
+restart persistence passed. The local Mac's Rosetta Chromium run crashed with a
+translation-layer SIGTRAP; **native amd64 rendering remains a rollout acceptance
+check**. The same Dockerfile built as
+`atlas-construct:2026101501-validation-arm64` passed the full smoke test, including
+Chromium SVG-to-PNG rendering under the 2 CPU / 6 GiB limits. No external model call
+was made. The build also caught and fixed a compiled CommonJS import-order crash in
+Construct's release-bundle upload route. Independent scoped code review found no
+actionable issues. Neither image was pushed and Terraform was not applied.
+
+### Dev preview pairing validation (October 15, 2026)
+
+Dev now sets `core-shell-env=uat`. Ezee DEV/TST/STG bundles lack required
+preview actions; UAT (`uat.shop.ezeefiber.com`, `index-DcVP9cI_.js`) passed
+compatibility, isolated mirroring and bundle-pin checks. The saved dev-only plan
+changed the environment Secret and Deployment checksum (2 updates, no additions
+or destruction). Apply succeeded; replacement pod
+`atlas-construct-dev-web-54d86ffd9f-nbv5v` is ready with zero restarts and
+`CORE_SHELL_ENV=uat`. The post-apply dev plan returned no changes. Production
+and Construct UAT were not applied.
+
+Authenticated Chrome validation opens Ezee and Midsouth previews, but end-to-end
+acceptance is **not passed**: package cards are empty and Customize stops with
+“no plan button to press on the offers page.” Read-only hydration returned four
+Ezee packages and nine Midsouth packages successfully. Both client records have
+empty `uiConfig`; their `packagePieces` Config rows refer to
+`@packagePiecesPresale` and `@packagePieces3MF`, respectively. Missing referenced
+layout configuration is the next issue to resolve; no client catalogs were edited.
+
+Earlier live native-amd64 validation passed Chromium rendering/capture and the
+Agent SDK model call, resolving the local Rosetta-only Chromium limitation.
