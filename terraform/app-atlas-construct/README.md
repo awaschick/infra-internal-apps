@@ -1,3 +1,24 @@
+# October 16 release configuration
+
+Prepared image target: `2026101601` for dev, UAT and production. Build/push it
+before applying these changes; the existing `2026101501` image does not include
+the new environment selector. No deployment is implied by the configuration edit.
+
+`core-shell-env=uat` now supplies the fallback for all Atlas Construct instances.
+The application resolves per-client database override → Construct-wide database
+setting → `CORE_SHELL_ENV` → historical `tst` default. Terraform already wires
+this variable into the environment Secret and rollout checksum; no new resource,
+port, permission or database migration is required. Saved database overrides win
+and can affect multiple instances sharing a Construct database. Verify the resolved
+source on the Environments page after deployment; do not overwrite operator settings
+as part of deployment. Keep the shell enabled and mirroring on.
+
+Older catalog-only imports need their CORE settings imported to render card layouts,
+as confirmed by the lead developer. That data prerequisite is separate from bundle
+compatibility and is not a build blocker. Use Check builds for each preview client.
+
+The dated sections below retain prior preparation and validation evidence.
+
 # Atlas Construct deployment
 
 This is the existing Construct workload owner. It uses config-instance precedence
@@ -15,7 +36,7 @@ New options under `config/app-atlas-construct`:
 | core-shell-enabled | false |
 | core-shell-port | 4100 |
 | core-shell-site-hostname | empty; derives preview.<app FQDN> |
-| core-shell-env | tst |
+| core-shell-env | uat |
 | core-shell-reference-client | Ezee |
 
 Enable the shell **together with an image containing the verified UI artifact and

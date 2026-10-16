@@ -20,7 +20,7 @@ values = {
     'port': '5432', 'image-uri': 'example.com/construct:test', 'image-pull-policy': 'IfNotPresent',
     'construct-data-volume-size': '10Gi', 'storage-class': 'gp3',
     'private-subnet-ids': 'subnet-12345', 'public-subnet-ids': 'subnet-12345',
-    'core-shell-port': '4100', 'core-shell-env': 'tst', 'core-shell-reference-client': 'Ezee',
+    'core-shell-port': '4100', 'core-shell-env': 'uat', 'core-shell-reference-client': 'Ezee',
     'core-shell-site-hostname': '', 'construct-data-dir': '/app/backend/data',
     'clients-json-path': '', 'core-preview-urls-path': '', 'morpheus-data-dir': '', 'log-dir': '',
     'allowed-origin': '',
@@ -102,7 +102,7 @@ for scenario in ['disabled', 'enabled', 'replicas', 'production', 'same-host', '
             if enabled:
                 assertions += '''
   assert {
-    condition = kubernetes_secret_v1.app_env.data["CORE_SHELL_MIRROR"] == "1" && kubernetes_secret_v1.app_env.data["CORE_SHELL_PUBLIC_ORIGIN"] == "https://preview.construct.example.com" && kubernetes_secret_v1.app_env.data["CORE_SHELL_EDITOR_ORIGIN"] == "https://construct.example.com"
+    condition = kubernetes_secret_v1.app_env.data["CORE_SHELL_ENV"] == "uat" && kubernetes_secret_v1.app_env.data["CORE_SHELL_MIRROR"] == "1" && kubernetes_secret_v1.app_env.data["CORE_SHELL_PUBLIC_ORIGIN"] == "https://preview.construct.example.com" && kubernetes_secret_v1.app_env.data["CORE_SHELL_EDITOR_ORIGIN"] == "https://construct.example.com"
     error_message = "Preview/editor origins differ from ingress"
   }
   assert {
