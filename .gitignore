@@ -65,3 +65,7 @@ config/_clusters/*/app-ask-atlas/_instances/*/dropbox-root-namespace-id
 config/_clusters/*/app-atlas-time/anthropic-api-key
 config/_clusters/*/app-atlas-time/_instances/*/anthropic-api-key
 *.tfplan
+
+# Construct CORE source reader token is supplied through local overrides.
+config/_clusters/*/app-atlas-construct/core-source-github-token
+config/_clusters/*/app-atlas-construct/_instances/*/core-source-github-token

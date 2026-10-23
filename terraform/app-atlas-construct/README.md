@@ -1,3 +1,36 @@
+# October 23 users and CORE source configuration
+
+Deployment configuration is prepared for Construct develop `7448f5f3`; no rollout
+is implied. Image rebuild, publication and version selection remain separate.
+
+The cluster-level `construct-admin-emails` grants admin access to
+`andywaschick@atlasdigitalgroup.com`, `mm@atlasdigitalgroup.com`, and
+`brianmay@atlasdigitalgroup.com` across default/prod, dev and UAT. Workspace overrides
+use the existing `_instances/<workspace>/construct-admin-emails` precedence.
+`CONSTRUCT_ADMIN_EMAILS` is an ongoing admin override, not only a migration seed;
+remove an email from configuration to stop forcing that person's admin access.
+Other users initially receive viewer access; assign editors through the Admin page.
+Entra remains the sign-in provider; Construct stores roles in PostgreSQL.
+
+Startup migrations are already enabled by the image. The new migration creates
+`app_user`, `user_activity` and `admin_audit` in each instance's existing Construct
+database. Verify migration completion and administrator sign-in after rollout.
+
+The in-app Update piece map feature requires `core-source-github-token`, mapped to
+`CORE_SOURCE_GITHUB_TOKEN` in the existing Kubernetes environment Secret. Supply a
+dedicated read-only CORE repository token in the ignored cluster-level file or an
+ignored `_instances/<workspace>/core-source-github-token` override. The committed
+default is empty: no credential is included, and the feature stays unavailable
+until supplied. The default repository is `atlas-digital-group/core` and ref is
+`origin/tg/vue3`, configurable with `core-source-github-repo` and `core-source-ref`.
+The backend needs HTTPS access to `api.github.com`. Stored maps use the existing
+PVC under `piece-maps`; no new volume or inbound port is needed.
+
+All four settings participate in the existing environment checksum and rollout.
+Use the existing protected Terraform state handling because the environment Secret
+contains the token. Refresh the packaged CORE UI artifact for the new map pin
+(`7ad4026f056ebfe4fd5fbeafdbe8268f963cec7f`, `index-DS3QMazj.js`) during image build.
+
 # October 16 release configuration
 
 Prepared image target: `2026101601` for dev, UAT and production. Build/push it

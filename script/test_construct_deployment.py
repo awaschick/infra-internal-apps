@@ -24,6 +24,10 @@ values = {
     'core-shell-site-hostname': '', 'construct-data-dir': '/app/backend/data',
     'clients-json-path': '', 'core-preview-urls-path': '', 'morpheus-data-dir': '', 'log-dir': '',
     'allowed-origin': '',
+    'construct-admin-emails': '',
+    'core-source-github-token': '',
+    'core-source-github-repo': 'atlas-digital-group/core',
+    'core-source-ref': 'origin/tg/vue3',
     'core-shell-mirror': '1',
     'css-design-render': 'on',
     'morpheus-slack-engine': 'agent',
@@ -73,6 +77,12 @@ for scenario in ['disabled', 'enabled', 'replicas', 'production', 'same-host', '
             folder = config / package
             folder.mkdir(exist_ok=True)
             (folder / option).write_text(actual.get(option, 'test'))
+        # Exercise cluster inheritance with synthetic identities/credentials only.
+        cluster_config = config / '_clusters/test/app-atlas-construct'
+        cluster_config.mkdir(parents=True)
+        (cluster_config / 'construct-admin-emails').write_text('one@example.com,two@example.com,three@example.com')
+        if scenario == 'enabled':
+            (cluster_config / 'core-source-github-token').write_text('synthetic-read-only-token')
         if scenario in ['disabled', 'enabled']:
             enabled = scenario == 'enabled'
             assertions = f'''
@@ -99,6 +109,18 @@ for scenario in ['disabled', 'enabled', 'replicas', 'production', 'same-host', '
     error_message = "Browser and agent resource budget is missing"
   }
 '''
+            assertions += """
+  assert {
+    condition = kubernetes_secret_v1.app_env.data["CONSTRUCT_ADMIN_EMAILS"] == "one@example.com,two@example.com,three@example.com"
+    error_message = "Cluster admin list was not inherited into the environment Secret"
+  }
+  assert {
+    condition = kubernetes_secret_v1.app_env.data["CORE_SOURCE_GITHUB_REPO"] == "atlas-digital-group/core" && kubernetes_secret_v1.app_env.data["CORE_SOURCE_REF"] == "origin/tg/vue3"
+    error_message = "CORE source defaults are missing"
+  }
+"""
+            token_condition = 'kubernetes_secret_v1.app_env.data["CORE_SOURCE_GITHUB_TOKEN"] == "synthetic-read-only-token"' if enabled else '!contains(keys(kubernetes_secret_v1.app_env.data), "CORE_SOURCE_GITHUB_TOKEN")'
+            assertions += '\n  assert {\n    condition = ' + token_condition + '\n    error_message = "Optional CORE source token was not included or omitted correctly"\n  }\n'
             if enabled:
                 assertions += '''
   assert {

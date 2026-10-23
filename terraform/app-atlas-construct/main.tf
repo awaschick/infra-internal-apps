@@ -79,6 +79,10 @@ locals {
       { package = "app-atlas-construct", option = "log-dir" },
       { package = "app-atlas-construct", option = "morpheus-data-dir" },
       { package = "app-atlas-construct", option = "architect-token" },
+      { package = "app-atlas-construct", option = "construct-admin-emails" },
+      { package = "app-atlas-construct", option = "core-source-github-token" },
+      { package = "app-atlas-construct", option = "core-source-github-repo" },
+      { package = "app-atlas-construct", option = "core-source-ref" },
       { package = "app-atlas-construct", option = "entra-client-id" },
       { package = "app-atlas-construct", option = "entra-tenant-id" },
       { package = "app-atlas-construct", option = "vite-entra-client-id" },
@@ -158,21 +162,25 @@ locals {
   }
   optional_app_env = {
     for key, value in {
-      ENTRA_CLIENT_ID      = local.config["app-atlas-construct_entra-client-id"]
-      ENTRA_TENANT_ID      = local.config["app-atlas-construct_entra-tenant-id"]
-      VITE_ENTRA_CLIENT_ID = local.vite_entra_client_id
-      VITE_ENTRA_TENANT_ID = local.vite_entra_tenant_id
-      ARCHITECT_TOKEN      = local.config["app-atlas-construct_architect-token"]
-      ANTHROPIC_API_KEY    = local.config["app-atlas-construct_anthropic-api-key"]
-      OPENAI_API_KEY       = local.config["app-atlas-construct_openai-api-key"]
-      BIGQUERY_PROJECT_ID  = local.config["app-atlas-construct_bigquery-project-id"]
-      BIGQUERY_DATASET     = local.config["app-atlas-construct_bigquery-dataset"]
-      BIGQUERY_KEY_JSON    = local.config["app-atlas-construct_bigquery-key-json"]
-      BIGQUERY_MAX_ROWS    = local.config["app-atlas-construct_bigquery-max-rows"]
-      BIGQUERY_TIMEOUT_MS  = local.config["app-atlas-construct_bigquery-timeout-ms"]
-      SLACK_BOT_TOKEN      = local.config["app-atlas-construct_slack-bot-token"]
-      SLACK_APP_TOKEN      = local.config["app-atlas-construct_slack-app-token"]
-      MORPHEUS_CHANNEL_ID  = local.config["app-atlas-construct_morpheus-channel-id"]
+      CONSTRUCT_ADMIN_EMAILS   = local.config["app-atlas-construct_construct-admin-emails"]
+      CORE_SOURCE_GITHUB_TOKEN = local.config["app-atlas-construct_core-source-github-token"]
+      CORE_SOURCE_GITHUB_REPO  = local.config["app-atlas-construct_core-source-github-repo"]
+      CORE_SOURCE_REF          = local.config["app-atlas-construct_core-source-ref"]
+      ENTRA_CLIENT_ID          = local.config["app-atlas-construct_entra-client-id"]
+      ENTRA_TENANT_ID          = local.config["app-atlas-construct_entra-tenant-id"]
+      VITE_ENTRA_CLIENT_ID     = local.vite_entra_client_id
+      VITE_ENTRA_TENANT_ID     = local.vite_entra_tenant_id
+      ARCHITECT_TOKEN          = local.config["app-atlas-construct_architect-token"]
+      ANTHROPIC_API_KEY        = local.config["app-atlas-construct_anthropic-api-key"]
+      OPENAI_API_KEY           = local.config["app-atlas-construct_openai-api-key"]
+      BIGQUERY_PROJECT_ID      = local.config["app-atlas-construct_bigquery-project-id"]
+      BIGQUERY_DATASET         = local.config["app-atlas-construct_bigquery-dataset"]
+      BIGQUERY_KEY_JSON        = local.config["app-atlas-construct_bigquery-key-json"]
+      BIGQUERY_MAX_ROWS        = local.config["app-atlas-construct_bigquery-max-rows"]
+      BIGQUERY_TIMEOUT_MS      = local.config["app-atlas-construct_bigquery-timeout-ms"]
+      SLACK_BOT_TOKEN          = local.config["app-atlas-construct_slack-bot-token"]
+      SLACK_APP_TOKEN          = local.config["app-atlas-construct_slack-app-token"]
+      MORPHEUS_CHANNEL_ID      = local.config["app-atlas-construct_morpheus-channel-id"]
     } : key => value if trimspace(value) != ""
   }
   app_env = merge({
