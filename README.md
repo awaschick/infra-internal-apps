@@ -107,6 +107,11 @@ If Terraform fails while refreshing a `kubernetes_*` resource, check cluster API
 
 ## How Configuration Works
 
+For configurable read-only PostgreSQL accounts, see the
+[RDS account configuration guide](terraform/aws-rds-postgres/README.md).
+The optional Git-ignored manifest is synchronized after a successful
+`make tf-start aws-rds-postgres` deployment.
+
 The `config` directory contains a lot of tiny text files, grouped into directories according to what they define. Most files will contain a single line of text—*no carriage return at the end*—that informs the behavior of one (or several) of the `make` actions listed above. 
 
 ### Config File Override Levels

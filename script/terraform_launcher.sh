@@ -41,18 +41,20 @@ tf_exec()
         mkdir -p "${cluster_config_path}/${package}/_instances/${workspace}"
     fi
 
-    cd "${terraform_path}/${package}" && terraform init -reconfigure
-    cd "${terraform_path}/${package}" && terraform workspace select "${workspace}" >/dev/null 2>&1 || terraform workspace new "${workspace}"
+    cd "${terraform_path}/${package}" || return $?
+    terraform init -reconfigure || return $?
+    terraform workspace select "${workspace}" >/dev/null 2>&1 || terraform workspace new "${workspace}" || return $?
 
     if [ ${mode} = "start" ]; then
         if [ -f "${terraform_path}/${package}/_init/start.sh" ]; then
-            source "${terraform_path}/${package}/_init/start.sh"
+            source "${terraform_path}/${package}/_init/start.sh" || return $?
         fi
 
-        cd "${terraform_path}/${package}" && terraform apply -auto-approve -var "kubeconfig=${KUBECONFIG}"
+        cd "${terraform_path}/${package}" || return $?
+        terraform apply -auto-approve -var "kubeconfig=${KUBECONFIG}" || return $?
 
         if [ -f "${terraform_path}/${package}/_init/start_complete.sh" ]; then
-            source "${terraform_path}/${package}/_init/start_complete.sh"
+            source "${terraform_path}/${package}/_init/start_complete.sh" || return $?
         fi
 
 

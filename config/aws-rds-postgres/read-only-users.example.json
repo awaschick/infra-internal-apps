@@ -1,0 +1,15 @@
+{
+  "users": [
+    {
+      "username": "example_report_reader",
+      "password": "REPLACE_WITH_A_UNIQUE_PASSWORD",
+      "access": [
+        {
+          "database": "example_app",
+          "schemas": ["public"],
+          "owners": ["example_migration_role"]
+        }
+      ]
+    }
+  ]
+}

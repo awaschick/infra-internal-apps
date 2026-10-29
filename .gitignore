@@ -3,6 +3,10 @@
 .venv
 .idea
 .DS_Store
+__pycache__/
+
+# Reader passwords must never be committed, including common defaults.
+config/**/read-only-users.json
 
 # .tfstate files
 *.tfstate
