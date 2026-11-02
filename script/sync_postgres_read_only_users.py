@@ -189,6 +189,54 @@ def audit(db, database, user, allowed):
             raise ValueError(f'Required read grants are missing in {database}; account remains disabled. Check administrator grant authority.')
 
 
+def read_grant_revocations(db, database, username):
+    """Discover actual direct grants, including grants made by the v1 implementation.
+
+    Catalog discovery avoids relying on the old irreversible scope hash or a
+    successful previous run. Only the dedicated reader's CONNECT/USAGE/SELECT
+    grants are managed; PUBLIC, other users, ownership and write ACLs are untouched.
+    PostgreSQL format(%I) quotes existing object names, including mixed-case names.
+    """
+    role = literal(username)
+    return db.query(database, f"""
+        SELECT DISTINCT format('REVOKE CONNECT ON DATABASE %I FROM %I RESTRICT;', d.datname, {role}) AS sql
+          FROM pg_database d CROSS JOIN LATERAL aclexplode(d.datacl) a
+          WHERE d.datname=current_database() AND a.grantee=(SELECT oid FROM pg_roles WHERE rolname={role})
+            AND a.privilege_type='CONNECT'
+        UNION
+        SELECT format('REVOKE USAGE ON SCHEMA %I FROM %I RESTRICT;', n.nspname, {role})
+          FROM pg_namespace n CROSS JOIN LATERAL aclexplode(n.nspacl) a
+          WHERE a.grantee=(SELECT oid FROM pg_roles WHERE rolname={role}) AND a.privilege_type='USAGE'
+        UNION
+        SELECT format('REVOKE SELECT ON TABLE %I.%I FROM %I RESTRICT;', n.nspname, c.relname, {role})
+          FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+          WHERE c.relkind IN ('r','p','v','m','f') AND (
+            EXISTS (SELECT 1 FROM aclexplode(c.relacl) a
+              WHERE a.grantee=(SELECT oid FROM pg_roles WHERE rolname={role}) AND a.privilege_type='SELECT')
+            OR EXISTS (SELECT 1 FROM pg_attribute col CROSS JOIN LATERAL aclexplode(col.attacl) a
+              WHERE col.attrelid=c.oid AND a.grantee=(SELECT oid FROM pg_roles WHERE rolname={role})
+                AND a.privilege_type='SELECT'))
+        UNION
+        SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I%s REVOKE SELECT ON TABLES FROM %I RESTRICT;',
+                      owner.rolname, CASE WHEN d.defaclnamespace=0 THEN '' ELSE format(' IN SCHEMA %I', n.nspname) END, {role})
+          FROM pg_default_acl d JOIN pg_roles owner ON owner.oid=d.defaclrole
+          LEFT JOIN pg_namespace n ON n.oid=d.defaclnamespace
+          CROSS JOIN LATERAL aclexplode(d.defaclacl) a
+          WHERE d.defaclobjtype='r' AND a.grantee=(SELECT oid FROM pg_roles WHERE rolname={role})
+            AND a.privilege_type='SELECT'
+    """)
+
+
+def clear_read_grants(db, database, username):
+    commands = read_grant_revocations(db, database, username)
+    if commands:
+        db.run(database, 'BEGIN;\n' + '\n'.join(row['sql'] for row in commands) + '\nCOMMIT;')
+        # REVOKE can emit only a warning when the administrator lacks grantor
+        # authority. In particular, stale owner defaults must not survive silently.
+        if read_grant_revocations(db, database, username):
+            raise ValueError(f'Could not revoke prior reader grants in {database}; account remains disabled. Check grantor authority.')
+
+
 def sync(db, users):
     databases = [r['datname'] for r in db.query('postgres',
         "SELECT datname FROM pg_database WHERE datallowconn AND NOT datistemplate AND datname <> 'rdsadmin'")]
@@ -207,8 +255,13 @@ def sync(db, users):
                 raise ValueError('Refusing to modify an existing unmanaged account.')
             if any(role[k] for k in ('rolsuper', 'rolcreaterole', 'rolcreatedb', 'rolreplication', 'rolbypassrls', 'memberships')):
                 raise ValueError('Managed account has unexpected elevated privileges or role memberships.')
-            if user.get('enabled', True) and role['marker'] != scope_marker(user):
-                raise ValueError('Account scope changed. Disable the old account and configure a new username for the new scope.')
+            if user.get('enabled', True):
+                dependencies = db.query('postgres', f"""SELECT dep.deptype FROM pg_shdepend dep
+                    WHERE dep.refclassid='pg_authid'::regclass AND dep.refobjid={int(role['oid'])}
+                      AND (dep.deptype='o' OR (dep.dbid<>0 AND dep.dbid NOT IN
+                        (SELECT oid FROM pg_database WHERE datallowconn AND NOT datistemplate AND datname<>'rdsadmin')))""")
+                if dependencies:
+                    raise ValueError('Managed reader owns objects or has dependencies in an unauditable database. Review manually before changing access.')
         if not user.get('enabled', True):
             continue
         for grant in user['access']:
@@ -238,6 +291,8 @@ def sync(db, users):
         db.run('postgres', f"""ALTER ROLE {role} NOINHERIT
             PASSWORD {literal(user['password'])};
             ALTER ROLE {role} SET default_transaction_read_only = on;""")
+        for database in databases:
+            clear_read_grants(db, database, user['username'])
         for grant in user['access']:
             commands = [f'GRANT CONNECT ON DATABASE {identifier(grant["database"])} TO {role};']
             for schema in grant['schemas']:
@@ -254,7 +309,8 @@ def sync(db, users):
     # No account is enabled unless every requested reconciliation and audit succeeded.
     for user in users:
         if user.get('enabled', True):
-            db.run('postgres', f'ALTER ROLE {identifier(user["username"])} LOGIN;')
+            role = identifier(user['username'])
+            db.run('postgres', f'BEGIN; COMMENT ON ROLE {role} IS {literal(scope_marker(user))}; ALTER ROLE {role} LOGIN; COMMIT;')
 
 
 def main():

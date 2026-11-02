@@ -166,16 +166,10 @@ class IntegrationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.as_reader(changed, 'SELECT 1;')
 
-    def test_unmanaged_scope_changes_and_missing_schema_rejected(self):
+    def test_unmanaged_and_missing_schema_rejected(self):
         self.db.run('postgres', 'CREATE ROLE unrelated LOGIN;')
         with self.assertRaisesRegex(ValueError, 'unmanaged'):
             readers.sync(self.db, [self.account('unrelated')])
-        user = self.account('scoped_reader')
-        readers.sync(self.db, [user])
-        changed = copy.deepcopy(user)
-        changed['access'][0]['schemas'] = ['private']
-        with self.assertRaisesRegex(ValueError, 'scope changed'):
-            readers.sync(self.db, [changed])
         missing = self.account('missing_schema_reader')
         missing['access'][0]['schemas'] = ['absent']
         with self.assertRaisesRegex(ValueError, 'schema does not exist'):
@@ -222,8 +216,93 @@ class IntegrationTests(unittest.TestCase):
         admin.env = dict(self.db.env, PGUSER='deploy_admin', PGPASSWORD='test_deploy_password')
         user = self.account('limited_admin_reader')
         readers.sync(admin, [user])
+        changed = copy.deepcopy(user)
+        changed['access'][0]['schemas'] = ['private']
+        readers.sync(admin, [changed])
+        with self.assertRaises(ValueError):
+            self.as_reader(changed, 'SELECT * FROM reporting.existing;')
+        self.as_reader(changed, 'SELECT * FROM private.hidden;')
+
+    def test_scope_expansion_contraction_and_legacy_marker(self):
+        user = self.account('editable_reader')
+        other = self.account('unaffected_reader')
+        readers.sync(self.db, [user, other])
+        oid = self.db.query('postgres', "SELECT oid FROM pg_roles WHERE rolname='editable_reader'")[0]['oid']
+        self.db.run('postgres', 'CREATE DATABASE additional OWNER app_owner;')
+        self.db.run('additional', 'SET ROLE app_owner; CREATE TABLE public.extra(id int);')
+        changed = copy.deepcopy(user)
+        changed['access'][0]['schemas'].append('private')
+        changed['access'].append({'database': 'additional', 'schemas': ['public'], 'owners': ['app_owner']})
+        readers.sync(self.db, [changed])
+        self.as_reader(changed, 'SELECT * FROM private.hidden;')
+        connection = copy.copy(self.db)
+        connection.env = dict(self.db.env, PGUSER=changed['username'], PGPASSWORD=changed['password'])
+        connection.run('additional', 'SELECT * FROM public.extra;')
+        changed['access'] = [{'database': 'example', 'schemas': ['private'], 'owners': ['app_owner']}]
+        readers.sync(self.db, [changed])
+        for database, sql in [('example', 'SELECT * FROM reporting.existing;'), ('additional', 'SELECT * FROM public.extra;')]:
+            with self.assertRaises(ValueError):
+                connection.run(database, sql)
+        self.assertEqual(self.as_reader(other, 'SELECT id FROM reporting.existing;'), '7')
+        self.db.run('example', 'SET ROLE app_owner; CREATE TABLE reporting.after_removal(id int); CREATE TABLE private.after_change(id int);')
+        self.db.run('additional', 'SET ROLE app_owner; CREATE TABLE public.after_removal(id int);')
+        self.as_reader(changed, 'SELECT * FROM private.after_change;')
+        for database, sql in [('example', 'SELECT * FROM reporting.after_removal;'), ('additional', 'SELECT * FROM public.after_removal;')]:
+            with self.assertRaises(ValueError):
+                connection.run(database, sql)
+        self.assertEqual(self.db.query('postgres', "SELECT oid FROM pg_roles WHERE rolname='editable_reader'")[0]['oid'], oid)
+        readers.sync(self.db, [changed])
+
+    def test_creator_change_removes_old_defaults_and_failure_is_retryable(self):
+        self.db.run('postgres', 'CREATE ROLE new_creator; GRANT new_creator TO app_owner;')
+        self.db.run('example', 'GRANT USAGE, CREATE ON SCHEMA private TO new_creator;')
+        user = self.account('creator_reader')
+        user['access'][0]['schemas'] = ['private']
+        readers.sync(self.db, [user])
+        changed = copy.deepcopy(user)
+        changed['access'][0]['owners'] = ['new_creator']
+        self.db.run('example', 'GRANT INSERT ON private.hidden TO PUBLIC;')
+        try:
+            with self.assertRaisesRegex(ValueError, 'Unsafe effective privileges'):
+                readers.sync(self.db, [changed])
+            self.assertFalse(self.db.query('postgres', "SELECT rolcanlogin FROM pg_roles WHERE rolname='creator_reader'")[0]['rolcanlogin'])
+        finally:
+            self.db.run('example', 'REVOKE INSERT ON private.hidden FROM PUBLIC;')
+        readers.sync(self.db, [changed])
+        self.db.run('example', 'SET ROLE app_owner; CREATE TABLE private.old_creator_table(id int); RESET ROLE; SET ROLE new_creator; CREATE TABLE private.new_creator_table(id int);')
+        self.as_reader(changed, 'SELECT * FROM private.new_creator_table;')
+        with self.assertRaises(ValueError):
+            self.as_reader(changed, 'SELECT * FROM private.old_creator_table;')
+
+    def test_column_only_grants_are_removed_without_changing_other_readers(self):
+        user = self.account('column_reader')
+        readers.sync(self.db, [user])
+        self.db.run('example', 'REVOKE SELECT ON reporting.existing FROM column_reader; GRANT SELECT(id) ON reporting.existing TO column_reader;')
         self.assertEqual(self.as_reader(user, 'SELECT id FROM reporting.existing;'), '7')
-        readers.sync(admin, [user])
+        changed = copy.deepcopy(user)
+        changed['access'][0]['schemas'] = ['private']
+        readers.sync(self.db, [changed])
+        with self.assertRaises(ValueError):
+            self.as_reader(changed, 'SELECT id FROM reporting.existing;')
+
+    def test_owned_objects_and_excluded_database_dependencies_are_not_modified(self):
+        user = self.account('protected_reader')
+        readers.sync(self.db, [user])
+        self.db.run('example', 'CREATE TABLE reporting.protected(id int); ALTER TABLE reporting.protected OWNER TO protected_reader;')
+        try:
+            with self.assertRaisesRegex(ValueError, 'owns objects'):
+                readers.sync(self.db, [user])
+            self.assertTrue(self.db.query('example', "SELECT 1 FROM pg_class WHERE relname='protected'"))
+        finally:
+            self.db.run('example', 'ALTER TABLE reporting.protected OWNER TO app_owner;')
+        self.db.run('postgres', 'CREATE DATABASE offline_scope OWNER app_owner;')
+        self.db.run('offline_scope', 'CREATE TABLE public.prior_grant(id int); GRANT SELECT ON public.prior_grant TO protected_reader;')
+        self.db.run('postgres', 'ALTER DATABASE offline_scope ALLOW_CONNECTIONS false;')
+        try:
+            with self.assertRaisesRegex(ValueError, 'unauditable database'):
+                readers.sync(self.db, [user])
+        finally:
+            self.db.run('postgres', 'ALTER DATABASE offline_scope ALLOW_CONNECTIONS true;')
 
 
 if __name__ == '__main__':

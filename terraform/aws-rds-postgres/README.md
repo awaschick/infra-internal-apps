@@ -84,11 +84,27 @@ verification), matching the private endpoint usage.
   and terminates existing sessions. It retains grants and the role for recovery.
 - Removing a user from the file, supplying an empty users list, or removing the
   file **does not revoke** its existing access. Disable accounts explicitly first.
-- Re-enabling requires the original access scope and a password. To change the
-  database/schema/owner scope, disable the old account and use a new username.
-  The script rejects in-place scope changes rather than silently retaining old
-  grants. Role comments record ownership by this mechanism and a scope digest.
-  Existing unrelated accounts are never adopted or overwritten.
+- Edit `access` in place to add or remove databases, schemas, or future-table
+  creator roles while retaining the same username. Re-enabling a disabled account
+  also reconciles its access to the current manifest.
+- Each enabled managed reader is authoritative: sync discovers and removes its
+  direct database `CONNECT`, schema `USAGE`, table/column `SELECT`, and future-table
+  `SELECT` defaults across audited databases, then applies the requested scope.
+  This also replaces manually added read grants to that dedicated account.
+  Other users and PUBLIC grants remain unchanged. Existing tables in the retained
+  schemas remain readable regardless of creator; changing `owners` changes only
+  which creators automatically grant access to future tables.
+- Existing v1 managed accounts are supported without renaming or recreating them.
+  Catalog discovery works even when the old comment contains only a scope hash,
+  or a previous attempt partially applied. The comment is updated with the new
+  digest when audits succeed and login is enabled. Unmanaged accounts are never
+  adopted; managed readers that own objects or depend on excluded/offline
+  databases require manual review. No objects are dropped.
+- Revocation uses `RESTRICT`, never cascading into grants made to other users.
+  Missing authority or grants that cannot be removed cause failure with the reader
+  disabled. The administrator needs revocation authority for old scopes and default
+  privileges as well as grant authority for new scopes. Do not remove that authority
+  before transitioning accounts away from an old creator role.
 
 Sync temporarily disables each enabled managed account and terminates its
 sessions while changing grants/passwords. Run during a suitable reconnect window;
