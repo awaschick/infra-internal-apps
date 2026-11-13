@@ -155,8 +155,10 @@ locals {
     CORE_SHELL_MIRROR           = local.config["app-atlas-construct_core-shell-mirror"]
     CORE_SHELL_REFERENCE_CLIENT = local.config["app-atlas-construct_core-shell-reference-client"]
   } : {}
-  # Preserve compatibility with the currently deployed image until the shell is enabled.
-  health_command = local.core_shell_enabled ? ["node", "/app/healthcheck.cjs"] : ["sh", "-c", "wget -q -O /dev/null http://127.0.0.1:${local.container_port}/ && node -e \"const net=require('net');const s=net.createConnection(${local.server_port},'127.0.0.1');s.setTimeout(2000);s.on('connect',()=>process.exit(0));s.on('timeout',()=>process.exit(1));s.on('error',()=>process.exit(1));\""]
+  # Requires the release with HTTP /health before authentication. Readiness reacts
+  # quickly; liveness allows short CPU bursts but still detects a wedged backend.
+  health_command   = ["node", "/app/healthcheck.cjs"]
+  liveness_command = ["node", "/app/healthcheck.cjs", "--timeout-ms", "5000"]
   app_labels = {
     app = "${local.app_name}-web"
   }
@@ -391,10 +393,10 @@ resource "kubernetes_deployment_v1" "app" {
             timeout_seconds = 10
           }
           liveness_probe {
-            exec { command = local.health_command }
+            exec { command = local.liveness_command }
             period_seconds    = 20
             timeout_seconds   = 10
-            failure_threshold = 3
+            failure_threshold = 6
           }
         }
 
